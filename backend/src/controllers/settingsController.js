@@ -1,0 +1,219 @@
+const db = require('../database/db');
+const { logAudit } = require('../middleware/audit');
+
+const getAllSettings = async (req, res) => {
+    try {
+        const { isPublic } = req.query;
+
+        let query = 'SELECT * FROM system_settings';
+        const params = [];
+
+        if (isPublic === 'true') {
+            query += ' WHERE is_public = true';
+        }
+
+        query += ' ORDER BY setting_key';
+
+        const result = await db.query(query, params);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Get settings error:', error);
+        res.status(500).json({ error: 'Failed to fetch settings' });
+    }
+};
+
+const getSettingByKey = async (req, res) => {
+    try {
+        const { key } = req.params;
+
+        const result = await db.query(
+            'SELECT * FROM system_settings WHERE setting_key = $1',
+            [key]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Setting not found' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Get setting error:', error);
+        res.status(500).json({ error: 'Failed to fetch setting' });
+    }
+};
+
+const updateSetting = async (req, res) => {
+    try {
+        const { key } = req.params;
+        const { value, description, isPublic } = req.body;
+
+        const existing = await db.query(
+            'SELECT id FROM system_settings WHERE setting_key = $1',
+            [key]
+        );
+
+        if (existing.rows.length === 0) {
+            return res.status(404).json({ error: 'Setting not found' });
+        }
+
+        const updateFields = [];
+        const updateValues = [];
+        let paramCount = 1;
+
+        if (value !== undefined) {
+            updateFields.push(`setting_value = $${paramCount++}`);
+            updateValues.push(value);
+        }
+
+        if (description !== undefined) {
+            updateFields.push(`description = $${paramCount++}`);
+            updateValues.push(description);
+        }
+
+        if (isPublic !== undefined) {
+            updateFields.push(`is_public = $${paramCount++}`);
+            updateValues.push(isPublic);
+        }
+
+        updateFields.push(`updated_by = $${paramCount++}`);
+        updateValues.push(req.user.id);
+
+        updateValues.push(key);
+
+        await db.query(
+            `UPDATE system_settings 
+             SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP 
+             WHERE setting_key = $${paramCount}`,
+            updateValues
+        );
+
+        await logAudit(req.user.id, 'UPDATE_SETTING', 'SystemSettings', existing.rows[0].id, 
+            { key, value }, req);
+
+        res.json({ message: 'Setting updated successfully' });
+    } catch (error) {
+        console.error('Update setting error:', error);
+        res.status(500).json({ error: 'Failed to update setting' });
+    }
+};
+
+const createSetting = async (req, res) => {
+    try {
+        const { key, value, type = 'string', description, isPublic = false } = req.body;
+
+        if (!key) {
+            return res.status(400).json({ error: 'Setting key is required' });
+        }
+
+        const existing = await db.query(
+            'SELECT id FROM system_settings WHERE setting_key = $1',
+            [key]
+        );
+
+        if (existing.rows.length > 0) {
+            return res.status(409).json({ error: 'Setting already exists' });
+        }
+
+        const result = await db.query(
+            `INSERT INTO system_settings 
+             (setting_key, setting_value, setting_type, description, is_public, updated_by)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+            [key, value, type, description, isPublic, req.user.id]
+        );
+
+        await logAudit(req.user.id, 'CREATE_SETTING', 'SystemSettings', result.rows[0].id, 
+            { key, value }, req);
+
+        res.status(201).json({ 
+            message: 'Setting created successfully',
+            id: result.rows[0].id 
+        });
+    } catch (error) {
+        console.error('Create setting error:', error);
+        res.status(500).json({ error: 'Failed to create setting' });
+    }
+};
+
+const deleteSetting = async (req, res) => {
+    try {
+        const { key } = req.params;
+
+        const result = await db.query(
+            'DELETE FROM system_settings WHERE setting_key = $1 RETURNING id',
+            [key]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Setting not found' });
+        }
+
+        await logAudit(req.user.id, 'DELETE_SETTING', 'SystemSettings', result.rows[0].id, 
+            { key }, req);
+
+        res.json({ message: 'Setting deleted successfully' });
+    } catch (error) {
+        console.error('Delete setting error:', error);
+        res.status(500).json({ error: 'Failed to delete setting' });
+    }
+};
+
+const bulkUpdateSettings = async (req, res) => {
+    const client = await db.pool.connect();
+    
+    try {
+        const { settings } = req.body;
+
+        if (!Array.isArray(settings)) {
+            return res.status(400).json({ error: 'Settings must be an array' });
+        }
+
+        await client.query('BEGIN');
+
+        for (const setting of settings) {
+            const { key, value } = setting;
+            
+            const existing = await client.query(
+                'SELECT id FROM system_settings WHERE setting_key = $1',
+                [key]
+            );
+
+            if (existing.rows.length > 0) {
+                await client.query(
+                    `UPDATE system_settings 
+                     SET setting_value = $1, updated_by = $2, updated_at = CURRENT_TIMESTAMP 
+                     WHERE setting_key = $3`,
+                    [value, req.user.id, key]
+                );
+            } else {
+                await client.query(
+                    `INSERT INTO system_settings 
+                     (setting_key, setting_value, setting_type, updated_by)
+                     VALUES ($1, $2, 'string', $3)`,
+                    [key, value, req.user.id]
+                );
+            }
+        }
+
+        await client.query('COMMIT');
+
+        await logAudit(req.user.id, 'BULK_UPDATE_SETTINGS', 'SystemSettings', null, 
+            { count: settings.length }, req);
+
+        res.json({ message: 'Settings updated successfully' });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Bulk update settings error:', error);
+        res.status(500).json({ error: 'Failed to update settings' });
+    } finally {
+        client.release();
+    }
+};
+
+module.exports = {
+    getAllSettings,
+    getSettingByKey,
+    updateSetting,
+    createSetting,
+    deleteSetting,
+    bulkUpdateSettings
+};
