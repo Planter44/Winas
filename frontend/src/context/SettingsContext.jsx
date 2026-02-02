@@ -27,6 +27,7 @@ const defaultSettings = {
   login_welcome_text: 'Welcome to HRMS',
   login_subtitle: 'Sign in to your account',
   company_name: 'Winas Sacco',
+  company_logo_url: '',
   company_email: '',
   company_phone: '',
   company_address: ''

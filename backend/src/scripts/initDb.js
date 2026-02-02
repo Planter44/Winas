@@ -9,6 +9,33 @@ const readSqlFile = (absolutePath) => {
     return fs.readFileSync(absolutePath, 'utf8');
 };
 
+const resolveRepoRoot = () => {
+    const candidates = [];
+
+    // Typical local / Render when Root Directory = backend
+    candidates.push(path.resolve(process.cwd(), '..'));
+    // When Root Directory is nested (e.g. src/backend)
+    candidates.push(path.resolve(process.cwd(), '../..'));
+    // When running from repo root
+    candidates.push(process.cwd());
+
+    // Fallbacks based on script location
+    candidates.push(path.resolve(__dirname, '../../../'));
+    candidates.push(path.resolve(__dirname, '../../../../'));
+
+    for (const c of candidates) {
+        try {
+            if (fs.existsSync(path.join(c, 'database', 'schema.sql'))) {
+                return c;
+            }
+        } catch (_) {
+            // ignore
+        }
+    }
+
+    return candidates[0];
+};
+
 const runSqlFile = async (absolutePath) => {
     const sql = readSqlFile(absolutePath);
     console.log(`\n🟦 Running: ${path.relative(process.cwd(), absolutePath)}`);
@@ -49,7 +76,7 @@ const main = async () => {
         const existingCount = existsRes.rows[0]?.count ?? 0;
         const looksEmpty = existingCount === 0;
 
-        const repoRoot = path.resolve(__dirname, '../../../../');
+        const repoRoot = resolveRepoRoot();
 
         const schemaSql = path.join(repoRoot, 'database', 'schema.sql');
         const seedAdminSql = path.join(repoRoot, 'database', 'seed_admin.sql');

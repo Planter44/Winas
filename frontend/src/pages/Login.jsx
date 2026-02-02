@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import { Building2, Loader, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
@@ -10,7 +11,17 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
+  const { getSetting } = useSettings();
   const navigate = useNavigate();
+
+  const companyName = getSetting('company_name', 'Winas Sacco');
+  const companyLogoUrl = getSetting('company_logo_url', '');
+  const loginWelcomeText = getSetting('login_welcome_text', 'Welcome to HRMS');
+  const loginSubtitle = getSetting('login_subtitle', 'Sign in to your account');
+
+  const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+  const API_ORIGIN = API_BASE.replace(/\/?api$/, '');
+  const resolvedLogoUrl = companyLogoUrl?.startsWith('/') ? `${API_ORIGIN}${companyLogoUrl}` : companyLogoUrl;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -38,11 +49,18 @@ const Login = () => {
       <div className="max-w-md w-full mx-4">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-full mb-4">
-              <Building2 size={32} className="text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900">Winas Sacco</h1>
-            <p className="text-sm text-gray-500 mt-2">Employee Management System</p>
+            {resolvedLogoUrl ? (
+              <div className="flex items-center justify-center mb-4">
+                <img src={resolvedLogoUrl} alt={companyName} className="h-16 w-16 object-contain" />
+              </div>
+            ) : (
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-full mb-4">
+                <Building2 size={32} className="text-white" />
+              </div>
+            )}
+            <h1 className="text-3xl font-bold text-gray-900">{companyName}</h1>
+            <p className="text-sm text-gray-500 mt-2">{loginWelcomeText}</p>
+            <p className="text-xs text-gray-400 mt-1">{loginSubtitle}</p>
           </div>
 
           {error && (
@@ -113,7 +131,7 @@ const Login = () => {
         </div>
 
         <p className="text-center text-sm text-gray-600 mt-6">
-          &copy; {new Date().getFullYear()} Winas Sacco. All rights reserved.
+          &copy; {new Date().getFullYear()} {companyName}. All rights reserved.
         </p>
       </div>
     </div>

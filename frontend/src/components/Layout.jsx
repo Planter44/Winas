@@ -28,10 +28,15 @@ const Layout = ({ children }) => {
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   
   const companyName = getSetting('company_name', 'Winas Sacco');
+  const companyLogoUrl = getSetting('company_logo_url', '');
   const sidebarBgColor = getSetting('sidebar_bg_color', '#ffffff');
   const headerBgColor = getSetting('header_bg_color', '#ffffff');
   const pageBgColor = getSetting('page_bg_color', '#f3f4f6');
   const primaryColor = getSetting('primary_color', '#2563eb');
+
+  const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+  const API_ORIGIN = API_BASE.replace(/\/?api$/, '');
+  const resolvedLogoUrl = companyLogoUrl?.startsWith('/') ? `${API_ORIGIN}${companyLogoUrl}` : companyLogoUrl;
 
   useEffect(() => {
     if (user && hasMinLevel(5)) {
@@ -96,7 +101,14 @@ const Layout = ({ children }) => {
     <div className="min-h-screen" style={{ backgroundColor: pageBgColor }}>
       <div className="md:hidden fixed top-0 left-0 right-0 border-b border-gray-200 z-50" style={{ backgroundColor: headerBgColor }}>
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-xl font-bold text-primary-600">{companyName}</h1>
+          <div className="flex items-center space-x-2">
+            {resolvedLogoUrl ? (
+              <img src={resolvedLogoUrl} alt={companyName} className="h-8 w-8 object-contain" />
+            ) : (
+              <Building2 size={20} className="text-primary-600" />
+            )}
+            <h1 className="text-xl font-bold text-primary-600">{companyName}</h1>
+          </div>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 relative"
@@ -119,7 +131,14 @@ const Layout = ({ children }) => {
       >
         <div className="flex flex-col h-full">
           <Link to="/dashboard" className="flex items-center justify-center h-16 border-b border-gray-200 hover:bg-gray-50 transition-colors">
-            <h1 className="text-2xl font-bold text-primary-600">{companyName}</h1>
+            <div className="flex items-center space-x-3">
+              {resolvedLogoUrl ? (
+                <img src={resolvedLogoUrl} alt={companyName} className="h-8 w-8 object-contain" />
+              ) : (
+                <Building2 size={24} className="text-primary-600" />
+              )}
+              <h1 className="text-2xl font-bold text-primary-600">{companyName}</h1>
+            </div>
           </Link>
 
           <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
@@ -184,7 +203,11 @@ const Layout = ({ children }) => {
         <header className="border-b border-gray-200 sticky top-0 z-20 px-4 py-3" style={{ backgroundColor: headerBgColor }}>
           <div className="flex items-center justify-between">
             <Link to="/dashboard" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
-              <Building2 size={28} className="text-primary-600" />
+              {resolvedLogoUrl ? (
+                <img src={resolvedLogoUrl} alt={companyName} className="h-7 w-7 object-contain" />
+              ) : (
+                <Building2 size={28} className="text-primary-600" />
+              )}
               <h2 className="text-lg font-bold text-gray-900">{companyName}</h2>
             </Link>
 

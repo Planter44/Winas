@@ -127,6 +127,13 @@ export const settingsAPI = {
   create: (data) => api.post('/settings', data),
   update: (key, data) => api.put(`/settings/${key}`, data),
   bulkUpdate: (data) => api.put('/settings/bulk', data),
+  uploadCompanyLogo: (file) => {
+    const formData = new FormData();
+    formData.append('logo', file);
+    return api.post('/settings/company-logo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
   delete: (key) => api.delete(`/settings/${key}`)
 };
 

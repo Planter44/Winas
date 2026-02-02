@@ -35,6 +35,18 @@ const getDashboardStats = async (req, res) => {
             );
             stats.myAppraisalsCount = parseInt(myAppraisals.rows[0].count);
 
+            try {
+                const myPerformanceAppraisals = await db.query(
+                    `SELECT COUNT(*) as count
+                     FROM performance_appraisals
+                     WHERE user_id = $1 AND period_year = $2 AND deleted_at IS NULL`,
+                    [currentUser.id, currentYear]
+                );
+                stats.myPerformanceAppraisalsCount = parseInt(myPerformanceAppraisals.rows[0].count);
+            } catch (e) {
+                stats.myPerformanceAppraisalsCount = 0;
+            }
+
         } else if (currentUser.role_name === 'Supervisor') {
             const pendingLeaves = await db.query(
                 `SELECT COUNT(*) as count FROM leave_requests 
@@ -70,6 +82,21 @@ const getDashboardStats = async (req, res) => {
                 [currentYear]
             );
             stats.appraisalStats = appraisalStats.rows[0];
+
+            try {
+                const performanceAppraisalStats = await db.query(
+                    `SELECT
+                        COUNT(*) as total,
+                        SUM(CASE WHEN status IN ('Draft', 'Finalized') THEN 1 ELSE 0 END) as finalized,
+                        SUM(CASE WHEN status IN ('Submitted', 'Supervisor_Review', 'HOD_Review', 'HR_Review', 'CEO_Approved') THEN 1 ELSE 0 END) as pending_review
+                     FROM performance_appraisals
+                     WHERE period_year = $1 AND deleted_at IS NULL`,
+                    [currentYear]
+                );
+                stats.performanceAppraisalStats = performanceAppraisalStats.rows[0];
+            } catch (e) {
+                stats.performanceAppraisalStats = { total: 0, finalized: 0, pending_review: 0 };
+            }
 
         } else if (currentUser.role_name === 'HOD') {
             const deptStats = await db.query(
@@ -110,6 +137,21 @@ const getDashboardStats = async (req, res) => {
                 [currentYear]
             );
             stats.appraisalStats = appraisalStats.rows[0];
+
+            try {
+                const performanceAppraisalStats = await db.query(
+                    `SELECT
+                        COUNT(*) as total,
+                        SUM(CASE WHEN status IN ('Draft', 'Finalized') THEN 1 ELSE 0 END) as finalized,
+                        SUM(CASE WHEN status IN ('Submitted', 'Supervisor_Review', 'HOD_Review', 'HR_Review', 'CEO_Approved') THEN 1 ELSE 0 END) as pending_review
+                     FROM performance_appraisals
+                     WHERE period_year = $1 AND deleted_at IS NULL`,
+                    [currentYear]
+                );
+                stats.performanceAppraisalStats = performanceAppraisalStats.rows[0];
+            } catch (e) {
+                stats.performanceAppraisalStats = { total: 0, finalized: 0, pending_review: 0 };
+            }
 
             const departmentBreakdown = await db.query(
                 `SELECT d.name, COUNT(u.id) as staff_count

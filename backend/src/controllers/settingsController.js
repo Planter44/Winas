@@ -1,5 +1,7 @@
 const db = require('../database/db');
 const { logAudit } = require('../middleware/audit');
+const path = require('path');
+const { isCloudinaryConfigured, uploadBuffer } = require('../utils/cloudinary');
 
 const getAllSettings = async (req, res) => {
     try {
@@ -25,6 +27,50 @@ const getAllSettings = async (req, res) => {
 const getPublicSettings = async (req, res) => {
     req.query.isPublic = 'true';
     return getAllSettings(req, res);
+};
+
+const uploadCompanyLogo = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No logo uploaded' });
+        }
+
+        let logoUrl;
+        if (isCloudinaryConfigured()) {
+            const folder = process.env.CLOUDINARY_LOGO_FOLDER || process.env.CLOUDINARY_FOLDER || 'winas-hrms/company-logo';
+            const uploadRes = await uploadBuffer(req.file.buffer, {
+                folder,
+                public_id: 'company-logo',
+                overwrite: true,
+                original_filename: req.file.originalname
+            });
+            logoUrl = uploadRes.secure_url;
+        } else {
+            logoUrl = `/uploads/logos/${req.file.filename}`;
+        }
+
+        const upsert = await db.query(
+            `INSERT INTO system_settings (setting_key, setting_value, setting_type, description, is_public, updated_by)
+             VALUES ($1, $2, 'string', $3, true, $4)
+             ON CONFLICT (setting_key)
+             DO UPDATE SET setting_value = EXCLUDED.setting_value,
+                           setting_type = EXCLUDED.setting_type,
+                           description = EXCLUDED.description,
+                           is_public = EXCLUDED.is_public,
+                           updated_by = EXCLUDED.updated_by,
+                           updated_at = CURRENT_TIMESTAMP
+             RETURNING id`,
+            ['company_logo_url', logoUrl, 'Company logo URL', req.user.id]
+        );
+
+        await logAudit(req.user.id, 'UPDATE_SETTING', 'SystemSettings', upsert.rows[0]?.id || null,
+            { key: 'company_logo_url', value: logoUrl }, req);
+
+        res.json({ message: 'Company logo updated successfully', logoUrl });
+    } catch (error) {
+        console.error('Upload company logo error:', error);
+        res.status(500).json({ error: 'Failed to upload company logo' });
+    }
 };
 
 const getSettingByKey = async (req, res) => {
@@ -220,6 +266,7 @@ module.exports = {
     getSettingByKey,
     updateSetting,
     createSetting,
+    uploadCompanyLogo,
     deleteSetting,
     bulkUpdateSettings
 };

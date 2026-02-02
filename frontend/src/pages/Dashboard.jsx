@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 import { dashboardAPI } from '../services/api';
@@ -245,6 +246,30 @@ const Dashboard = () => {
             <Award className="text-primary-500" size={32} />
           </div>
         </div>
+
+        <Link to="/performance-appraisals?group=pending_review" className="card hover:bg-yellow-50 transition-colors">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Performance Pending Review</p>
+              <p className="text-2xl font-bold text-yellow-600">
+                {stats?.performanceAppraisalStats?.pending_review || 0}
+              </p>
+            </div>
+            <Clock className="text-yellow-500" size={32} />
+          </div>
+        </Link>
+
+        <Link to="/performance-appraisals?group=finalized" className="card hover:bg-green-50 transition-colors">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Performance Finalized</p>
+              <p className="text-2xl font-bold text-green-600">
+                {stats?.performanceAppraisalStats?.finalized || 0}
+              </p>
+            </div>
+            <CheckCircle className="text-green-500" size={32} />
+          </div>
+        </Link>
       </div>
     </div>
   );
@@ -295,6 +320,32 @@ const Dashboard = () => {
             <TrendingUp className="text-green-500" size={36} />
           </div>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <Link to="/performance-appraisals?group=pending_review" className="card bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200 hover:border-yellow-300 transition-colors">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-yellow-700 mb-1 font-medium">Performance Pending Review</p>
+              <p className="text-3xl font-bold text-yellow-900">
+                {stats?.performanceAppraisalStats?.pending_review || 0}
+              </p>
+            </div>
+            <Clock className="text-yellow-500" size={36} />
+          </div>
+        </Link>
+
+        <Link to="/performance-appraisals?group=finalized" className="card bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 hover:border-emerald-300 transition-colors">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-emerald-700 mb-1 font-medium">Performance Finalized</p>
+              <p className="text-3xl font-bold text-emerald-900">
+                {stats?.performanceAppraisalStats?.finalized || 0}
+              </p>
+            </div>
+            <CheckCircle className="text-emerald-500" size={36} />
+          </div>
+        </Link>
       </div>
 
       {stats?.departmentBreakdown && stats.departmentBreakdown.length > 0 && (

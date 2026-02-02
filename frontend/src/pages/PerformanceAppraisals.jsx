@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 import { performanceAppraisalAPI } from '../services/api';
@@ -10,6 +10,7 @@ import {
 
 const PerformanceAppraisals = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, hasRole } = useAuth();
   const [appraisals, setAppraisals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,6 +18,24 @@ const PerformanceAppraisals = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [filterStatus, setFilterStatus] = useState('');
+  const [quickFilter, setQuickFilter] = useState('');
+
+  const isPendingReviewStatus = (status) => {
+    return ['Submitted', 'Supervisor_Review', 'HOD_Review', 'HR_Review', 'CEO_Approved'].includes(status);
+  };
+
+  const isFinalizedGroupStatus = (status) => {
+    return ['Finalized', 'Draft'].includes(status);
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const group = params.get('group');
+    if (group === 'pending_review' || group === 'finalized') {
+      setFilterStatus('');
+      setQuickFilter(group);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     fetchAppraisals();
@@ -91,9 +110,15 @@ const PerformanceAppraisals = () => {
   const filteredAppraisals = appraisals.filter(appraisal => {
     const searchLower = searchTerm.toLowerCase();
     const fullName = `${appraisal.first_name} ${appraisal.last_name}`.toLowerCase();
-    return fullName.includes(searchLower) || 
-           appraisal.employee_number?.toLowerCase().includes(searchLower) ||
-           appraisal.department_name?.toLowerCase().includes(searchLower);
+    const matchesSearch = fullName.includes(searchLower) || 
+      appraisal.employee_number?.toLowerCase().includes(searchLower) ||
+      appraisal.department_name?.toLowerCase().includes(searchLower);
+
+    if (!matchesSearch) return false;
+
+    if (quickFilter === 'pending_review') return isPendingReviewStatus(appraisal.status);
+    if (quickFilter === 'finalized') return isFinalizedGroupStatus(appraisal.status);
+    return true;
   });
 
   const canCreate = hasRole('Supervisor') || hasRole('HOD') || hasRole('HR') || hasRole('Super Admin') || hasRole('CEO');
@@ -317,18 +342,32 @@ const PerformanceAppraisals = () => {
               <div className="text-2xl font-bold text-blue-700">{filteredAppraisals.length}</div>
               <div className="text-sm text-blue-600">Total Appraisals</div>
             </div>
-            <div className="bg-yellow-50 rounded-lg p-4">
+            <button
+              type="button"
+              onClick={() => {
+                setFilterStatus('');
+                setQuickFilter('pending_review');
+              }}
+              className="bg-yellow-50 rounded-lg p-4 text-left hover:bg-yellow-100 transition-colors"
+            >
               <div className="text-2xl font-bold text-yellow-700">
-                {filteredAppraisals.filter(a => a.status === 'Draft' || a.status === 'Submitted').length}
+                {filteredAppraisals.filter(a => isPendingReviewStatus(a.status)).length}
               </div>
               <div className="text-sm text-yellow-600">Pending Review</div>
-            </div>
-            <div className="bg-green-50 rounded-lg p-4">
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFilterStatus('');
+                setQuickFilter('finalized');
+              }}
+              className="bg-green-50 rounded-lg p-4 text-left hover:bg-green-100 transition-colors"
+            >
               <div className="text-2xl font-bold text-green-700">
-                {filteredAppraisals.filter(a => a.status === 'Finalized').length}
+                {filteredAppraisals.filter(a => isFinalizedGroupStatus(a.status)).length}
               </div>
               <div className="text-sm text-green-600">Finalized</div>
-            </div>
+            </button>
             <div className="bg-purple-50 rounded-lg p-4">
               <div className="text-2xl font-bold text-purple-700">
                 {filteredAppraisals.length > 0 

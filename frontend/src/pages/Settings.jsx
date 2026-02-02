@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { settingsAPI, leaveAPI } from '../services/api';
-import { Save, Plus, Edit, Trash2, Settings as SettingsIcon, Palette, Type, Layout as LayoutIcon } from 'lucide-react';
+import { Save, Plus, Edit, Trash2, Settings as SettingsIcon, Palette, Type, Layout as LayoutIcon, Image } from 'lucide-react';
 
 const Settings = () => {
   const { user } = useAuth();
@@ -13,7 +13,10 @@ const Settings = () => {
   const [leaveTypes, setLeaveTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [companyLogoUrl, setCompanyLogoUrl] = useState('');
+  const [logoFile, setLogoFile] = useState(null);
 
   const [companySettings, setCompanySettings] = useState({
     company_name: '',
@@ -55,6 +58,10 @@ const Settings = () => {
     fetchData();
   }, []);
 
+  const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+  const API_ORIGIN = API_BASE.replace(/\/?api$/, '');
+  const resolvedCompanyLogoUrl = companyLogoUrl?.startsWith('/') ? `${API_ORIGIN}${companyLogoUrl}` : companyLogoUrl;
+
   const fetchData = async () => {
     try {
       const [settingsRes, leaveTypesRes] = await Promise.all([
@@ -93,10 +100,38 @@ const Settings = () => {
         login_welcome_text: settingsMap.login_welcome_text || 'Welcome to HRMS',
         login_subtitle: settingsMap.login_subtitle || 'Sign in to your account'
       });
+
+      setCompanyLogoUrl(settingsMap.company_logo_url || '');
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUploadCompanyLogo = async () => {
+    if (!logoFile) {
+      setMessage({ type: 'error', text: 'Please select a logo file to upload' });
+      return;
+    }
+
+    setLogoUploading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const res = await settingsAPI.uploadCompanyLogo(logoFile);
+      setCompanyLogoUrl(res.data?.logoUrl || '');
+      setLogoFile(null);
+      refreshSettings();
+      fetchData();
+      setMessage({ type: 'success', text: 'Company logo updated successfully!' });
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.error || 'Failed to upload company logo'
+      });
+    } finally {
+      setLogoUploading(false);
     }
   };
 
@@ -426,6 +461,53 @@ const Settings = () => {
             {activeTab === 'customization' && user?.role === 'Super Admin' && (
               <form onSubmit={handleSaveSiteCustomization}>
                 <div className="space-y-8">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <Image className="mr-2" size={20} />
+                      Company Logo
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="card bg-gray-50 border border-gray-200">
+                        <p className="text-sm font-medium text-gray-700 mb-3">Current Logo</p>
+                        {resolvedCompanyLogoUrl ? (
+                          <div className="h-28 flex items-center justify-center bg-white border border-gray-200 rounded-lg">
+                            <img
+                              src={resolvedCompanyLogoUrl}
+                              alt="Company Logo"
+                              className="max-h-20 max-w-full object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <div className="h-28 flex items-center justify-center bg-white border border-dashed border-gray-300 rounded-lg">
+                            <p className="text-sm text-gray-500">No logo uploaded</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="card bg-gray-50 border border-gray-200">
+                        <p className="text-sm font-medium text-gray-700 mb-3">Upload New Logo</p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+                          className="block w-full text-sm text-gray-700"
+                          disabled={logoUploading}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleUploadCompanyLogo}
+                          disabled={logoUploading || !logoFile}
+                          className="mt-4 btn-primary flex items-center disabled:opacity-50"
+                        >
+                          <Image className="mr-2" size={18} />
+                          {logoUploading ? 'Uploading...' : 'Upload Logo'}
+                        </button>
+                        <p className="text-xs text-gray-500 mt-2">Max 5MB. JPG/PNG/GIF/WEBP/SVG.</p>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Colors Section */}
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
