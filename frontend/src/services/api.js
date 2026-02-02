@@ -121,6 +121,7 @@ export const dashboardAPI = {
 };
 
 export const settingsAPI = {
+  getPublic: () => api.get('/settings/public'),
   getAll: () => api.get('/settings'),
   getByKey: (key) => api.get(`/settings/${key}`),
   create: (data) => api.post('/settings', data),

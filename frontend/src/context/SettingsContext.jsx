@@ -42,7 +42,7 @@ export const SettingsProvider = ({ children }) => {
 
   const fetchSettings = async () => {
     try {
-      const response = await settingsAPI.getAll();
+      const response = await settingsAPI.getPublic();
       const settingsMap = {};
       response.data.forEach(s => {
         settingsMap[s.setting_key] = s.setting_value;

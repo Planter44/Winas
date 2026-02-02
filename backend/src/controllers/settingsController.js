@@ -22,6 +22,11 @@ const getAllSettings = async (req, res) => {
     }
 };
 
+const getPublicSettings = async (req, res) => {
+    req.query.isPublic = 'true';
+    return getAllSettings(req, res);
+};
+
 const getSettingByKey = async (req, res) => {
     try {
         const { key } = req.params;
@@ -210,6 +215,7 @@ const bulkUpdateSettings = async (req, res) => {
 };
 
 module.exports = {
+    getPublicSettings,
     getAllSettings,
     getSettingByKey,
     updateSetting,
