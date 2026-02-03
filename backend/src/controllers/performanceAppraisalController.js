@@ -63,52 +63,39 @@ const canCreateForTargetUserId = async (client, currentUser, targetUserId) => {
 };
 
 const resolveSupervisorStaffId = async (client, userId, fallbackStaffId) => {
-    if (!userId) return fallbackStaffId;
+    if (!userId) return fallbackStaffId || null;
 
     const meta = await client.query(
-        `SELECT u.supervisor_id, r.name as role_name
+        `SELECT u.supervisor_id, u.department_id, r.name as role_name
          FROM users u
          LEFT JOIN roles r ON u.role_id = r.id
          WHERE u.id = $1 AND u.deleted_at IS NULL`,
         [userId]
     );
 
-    const supervisorRef = meta.rows[0]?.supervisor_id;
+    const supervisorUserId = meta.rows[0]?.supervisor_id || null;
+    const deptId = meta.rows[0]?.department_id || null;
     const roleName = (meta.rows[0]?.role_name || '').trim();
     const roleNeedsCeo = ['HOD', 'HR', 'HR Manager', 'Human Resource', 'Human Resources'].includes(roleName);
 
     // Follow leave approver rule: for Supervisors, their supervisor/approver is the HOD of their department.
-    if (roleName.toLowerCase() === 'supervisor') {
-        const dept = await client.query(
-            `SELECT department_id FROM users WHERE id = $1 AND deleted_at IS NULL`,
-            [userId]
+    if (roleName.toLowerCase() === 'supervisor' && deptId) {
+        const hodUser = await client.query(
+            `SELECT u.id
+             FROM users u
+             JOIN roles r ON u.role_id = r.id
+             WHERE u.department_id = $1
+               AND r.name = 'HOD'
+               AND u.deleted_at IS NULL
+             ORDER BY u.id ASC
+             LIMIT 1`,
+            [deptId]
         );
-        const deptId = dept.rows[0]?.department_id;
-        if (deptId) {
-            const hodUser = await client.query(
-                `SELECT u.id
-                 FROM users u
-                 JOIN roles r ON u.role_id = r.id
-                 WHERE u.department_id = $1
-                   AND r.name = 'HOD'
-                   AND u.deleted_at IS NULL
-                 ORDER BY u.id ASC
-                 LIMIT 1`,
-                [deptId]
-            );
-            const hodUserId = hodUser.rows[0]?.id;
-            if (hodUserId) {
-                const hodStaff = await client.query(
-                    `SELECT id FROM staff WHERE user_id = $1 AND deleted_at IS NULL ORDER BY id ASC LIMIT 1`,
-                    [hodUserId]
-                );
-                const hodStaffId = hodStaff.rows[0]?.id;
-                if (hodStaffId) return hodStaffId;
-            }
-        }
+        const hodUserId = hodUser.rows[0]?.id || null;
+        if (hodUserId) return hodUserId;
     }
 
-    const getCeoStaffId = async () => {
+    const getCeoUserId = async () => {
         const ceoUser = await client.query(
             `SELECT u.id
              FROM users u
@@ -118,36 +105,15 @@ const resolveSupervisorStaffId = async (client, userId, fallbackStaffId) => {
              ORDER BY u.id ASC
              LIMIT 1`
         );
-        const ceoUserId = ceoUser.rows[0]?.id;
-        if (!ceoUserId) return null;
-        const ceoStaff = await client.query(
-            `SELECT id FROM staff WHERE user_id = $1 AND deleted_at IS NULL ORDER BY id ASC LIMIT 1`,
-            [ceoUserId]
-        );
-        return ceoStaff.rows[0]?.id || null;
+        return ceoUser.rows[0]?.id || null;
     };
 
     if (roleNeedsCeo) {
-        const ceoStaffId = await getCeoStaffId();
-        if (ceoStaffId) return ceoStaffId;
-        return fallbackStaffId;
+        const ceoUserId = await getCeoUserId();
+        return ceoUserId || fallbackStaffId || supervisorUserId;
     }
 
-    if (!supervisorRef) return fallbackStaffId;
-
-    const byUser = await client.query(
-        `SELECT id FROM staff WHERE user_id = $1 AND deleted_at IS NULL ORDER BY id ASC LIMIT 1`,
-        [supervisorRef]
-    );
-    if (byUser.rows.length > 0) return byUser.rows[0].id;
-
-    const byStaff = await client.query(
-        `SELECT id FROM staff WHERE id = $1 AND deleted_at IS NULL`,
-        [supervisorRef]
-    );
-    if (byStaff.rows.length > 0) return byStaff.rows[0].id;
-
-    return fallbackStaffId;
+    return supervisorUserId || fallbackStaffId || null;
 };
 
 const getPerformanceSectionScoreColumns = async (client) => {
@@ -511,105 +477,10 @@ const createAppraisal = async (req, res) => {
 
         await ensurePerformanceAppraisalSchema(client);
 
-        // Get staff_id from staff table using user_id
-        let staffResult = await client.query(
-            `SELECT id, supervisor_id FROM staff WHERE user_id = $1 AND deleted_at IS NULL`,
-            [targetUserId]
-        );
-        
-        let staffId, supervisorId;
-        let defaultSupervisorId = null;
-        
-        if (staffResult.rows.length === 0) {
-            // No staff record found - try to get staff profile info and create a basic staff record
-            const profileInfo = await client.query(
-                `SELECT sp.user_id,
-                        sp.first_name,
-                        sp.last_name,
-                        sp.employee_number,
-                        sp.national_id,
-                        sp.phone,
-                        sp.date_of_birth,
-                        sp.gender,
-                        sp.job_title,
-                        sp.date_joined,
-                        u.department_id
-                 FROM staff_profiles sp
-                 JOIN users u ON u.id = sp.user_id
-                 WHERE sp.user_id = $1 AND u.deleted_at IS NULL`,
-                [targetUserId]
-            );
-            
-            if (profileInfo.rows.length === 0) {
-                await client.query('ROLLBACK');
-                return res.status(400).json({ error: 'User not found' });
-            }
-            
-            const profile = profileInfo.rows[0];
-
-            const employeeNumber = profile.employee_number || `WS${String(targetUserId).padStart(3, '0')}`;
-            const idNumber = profile.national_id || `TEMP${String(targetUserId).padStart(8, '0')}`;
-            const phoneNumber = profile.phone || '0000000000';
-            const dateOfBirth = profile.date_of_birth || new Date('1900-01-01');
-            const gender = profile.gender || 'U';
-            const jobTitle = profile.job_title || 'Unknown';
-            const employmentType = 'Permanent';
-            const dateOfHire = profile.date_joined || new Date();
-            
-            // Create a staff record for this user with all required NOT NULL columns
-            const newStaff = await client.query(
-                `INSERT INTO staff (
-                     user_id,
-                     employee_number,
-                     first_name,
-                     last_name,
-                     id_number,
-                     phone_number,
-                     date_of_birth,
-                     gender,
-                     job_title,
-                     employment_type,
-                     date_of_hire,
-                     department_id,
-                     supervisor_id
-                 )
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-                 RETURNING id, supervisor_id`,
-                [
-                    targetUserId,
-                    employeeNumber,
-                    profile.first_name || 'Unknown',
-                    profile.last_name || 'User',
-                    idNumber,
-                    phoneNumber,
-                    dateOfBirth,
-                    gender,
-                    jobTitle,
-                    employmentType,
-                    dateOfHire,
-                    profile.department_id || null,
-                    null
-                ]
-            );
-            
-            staffId = newStaff.rows[0].id;
-
-            const defaultSupervisor = await client.query(
-                `SELECT id FROM staff WHERE deleted_at IS NULL ORDER BY id ASC LIMIT 1`
-            );
-            defaultSupervisorId = defaultSupervisor.rows[0]?.id;
-            supervisorId = newStaff.rows[0].supervisor_id || defaultSupervisorId || staffId;
-        } else {
-            staffId = staffResult.rows[0].id;
-            // Use assigned supervisor or fallback to staff id 1 (CEO/Admin)
-            const defaultSupervisor = await client.query(
-                `SELECT id FROM staff WHERE deleted_at IS NULL ORDER BY id ASC LIMIT 1`
-            );
-            defaultSupervisorId = defaultSupervisor.rows[0]?.id;
-            supervisorId = staffResult.rows[0].supervisor_id || defaultSupervisorId || staffId;
+        let supervisorId = await resolveSupervisorStaffId(client, targetUserId, null);
+        if (!supervisorId && currentUser?.role_name === 'Supervisor') {
+            supervisorId = currentUser.id;
         }
-
-        supervisorId = await resolveSupervisorStaffId(client, targetUserId, supervisorId);
 
         const allowedPeriodTypes = ['Quarterly', 'Semi-annually', 'Annual', 'Annually'];
         const normalizedPeriodType = allowedPeriodTypes.includes(periodType) ? periodType : 'Annual';
@@ -619,114 +490,6 @@ const createAppraisal = async (req, res) => {
         if (normalizedPeriodType === 'Quarterly' && !(normalizedQuarter >= 1 && normalizedQuarter <= 4)) {
             await client.query('ROLLBACK');
             return res.status(400).json({ error: 'Quarter is required for Quarterly appraisals' });
-        }
-
-        let appraisalPeriodId;
-        const periodsTableExists = await client.query(
-            `SELECT 1
-             FROM information_schema.tables
-             WHERE table_schema = 'public'
-               AND table_name = 'appraisal_periods'
-             LIMIT 1`
-        );
-
-        if (periodsTableExists.rows.length > 0) {
-            let periodResult = await client.query(
-                `SELECT id
-                 FROM appraisal_periods
-                 WHERE period_type = $1
-                   AND year = $2
-                   AND quarter IS NOT DISTINCT FROM $3
-                 ORDER BY id DESC
-                 LIMIT 1`,
-                [normalizedPeriodType, periodYearNum, normalizedQuarter]
-            );
-
-            if (periodResult.rows.length > 0) {
-                appraisalPeriodId = periodResult.rows[0].id;
-            } else {
-                let createdPeriodId = null;
-
-                try {
-                    const activeCount = await client.query(
-                        `SELECT COUNT(*)::int AS count FROM appraisal_periods WHERE is_active = true`
-                    );
-                    const isActive = activeCount.rows[0]?.count === 0;
-
-                    let periodName;
-                    let startDate;
-                    let endDate;
-                    let submissionDeadline;
-
-                    if (normalizedPeriodType === 'Quarterly') {
-                        const monthStart = (normalizedQuarter - 1) * 3;
-                        startDate = new Date(Date.UTC(periodYearNum, monthStart, 1));
-                        endDate = new Date(Date.UTC(periodYearNum, monthStart + 3, 0));
-                        submissionDeadline = endDate;
-                        periodName = `Q${normalizedQuarter} ${periodYearNum} Performance Review`;
-                    } else if (normalizedPeriodType === 'Semi-annually') {
-                        const semi = parseInt(periodSemi) || 1;
-                        const monthStart = semi === 2 ? 6 : 0;
-                        startDate = new Date(Date.UTC(periodYearNum, monthStart, 1));
-                        endDate = new Date(Date.UTC(periodYearNum, monthStart + 6, 0));
-                        submissionDeadline = endDate;
-                        periodName = `Semi-Annual ${semi} ${periodYearNum} Performance Review`;
-                    } else {
-                        startDate = new Date(Date.UTC(periodYearNum, 0, 1));
-                        endDate = new Date(Date.UTC(periodYearNum, 11, 31));
-                        submissionDeadline = endDate;
-                        periodName = `Annual ${periodYearNum} Performance Review`;
-                    }
-
-                    const created = await client.query(
-                        `INSERT INTO appraisal_periods (name, period_type, year, quarter, start_date, end_date, submission_deadline, is_active)
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                         RETURNING id`,
-                        [periodName, normalizedPeriodType, periodYearNum, normalizedQuarter, startDate, endDate, submissionDeadline, isActive]
-                    );
-                    createdPeriodId = created.rows[0]?.id || null;
-                } catch (e) {
-                    createdPeriodId = null;
-                }
-
-                if (createdPeriodId) {
-                    appraisalPeriodId = createdPeriodId;
-                } else {
-                    periodResult = await client.query(
-                        `SELECT id
-                         FROM appraisal_periods
-                         WHERE is_active = true AND period_type = $1
-                         ORDER BY id DESC
-                         LIMIT 1`,
-                        [normalizedPeriodType]
-                    );
-
-                    if (periodResult.rows.length === 0) {
-                        periodResult = await client.query(
-                            `SELECT id
-                             FROM appraisal_periods
-                             WHERE is_active = true
-                             ORDER BY id DESC
-                             LIMIT 1`
-                        );
-                    }
-
-                    if (periodResult.rows.length === 0) {
-                        await client.query('ROLLBACK');
-                        return res.status(400).json({
-                            error: 'No appraisal periods are configured in the system. Please create an appraisal period first.'
-                        });
-                    }
-
-                    appraisalPeriodId = periodResult.rows[0].id;
-                }
-            }
-        } else {
-            const typeCode = normalizedPeriodType === 'Quarterly' ? 1 : (normalizedPeriodType === 'Semi-annually' ? 2 : 3);
-            const minor = normalizedPeriodType === 'Quarterly'
-                ? (parseInt(periodQuarter) || 0)
-                : (normalizedPeriodType === 'Semi-annually' ? (parseInt(periodSemi) || 0) : 0);
-            appraisalPeriodId = (periodYearNum * 100) + (typeCode * 10) + minor;
         }
 
         const createColumnsResult = await client.query(
@@ -746,17 +509,40 @@ const createAppraisal = async (req, res) => {
             overallScore = incomingOverall;
         }
 
+        const periodSemiNum = normalizedPeriodType === 'Semi-annually' ? (parseInt(periodSemi) || 1) : null;
+
+        const existingWhere = ['user_id = $1'];
+        const existingParams = [targetUserId];
+        let existingParamCount = 2;
+
+        if (createAppraisalColumns.has('period_type')) {
+            existingWhere.push(`period_type = $${existingParamCount++}`);
+            existingParams.push(normalizedPeriodType);
+        }
+        if (createAppraisalColumns.has('period_year')) {
+            existingWhere.push(`period_year = $${existingParamCount++}`);
+            existingParams.push(periodYearNum);
+        }
+        if (createAppraisalColumns.has('period_quarter')) {
+            existingWhere.push(`period_quarter IS NOT DISTINCT FROM $${existingParamCount++}`);
+            existingParams.push(normalizedQuarter);
+        }
+        if (createAppraisalColumns.has('period_semi')) {
+            existingWhere.push(`period_semi IS NOT DISTINCT FROM $${existingParamCount++}`);
+            existingParams.push(periodSemiNum);
+        }
+
         const existingAny = await client.query(
             createAppraisalColumns.has('deleted_at')
-                ? `SELECT id, deleted_at FROM performance_appraisals 
-                   WHERE staff_id = $1 AND appraisal_period_id = $2
+                ? `SELECT id, deleted_at FROM performance_appraisals
+                   WHERE ${existingWhere.join(' AND ')}
                    ORDER BY id DESC
                    LIMIT 1`
-                : `SELECT id FROM performance_appraisals 
-                   WHERE staff_id = $1 AND appraisal_period_id = $2
+                : `SELECT id FROM performance_appraisals
+                   WHERE ${existingWhere.join(' AND ')}
                    ORDER BY id DESC
                    LIMIT 1`,
-            [staffId, appraisalPeriodId]
+            existingParams
         );
 
         let appraisalId = null;
@@ -785,6 +571,22 @@ const createAppraisal = async (req, res) => {
             if (createAppraisalColumns.has('user_id')) {
                 restoreFields.push(`user_id = $${restoreParam++}`);
                 restoreValues.push(targetUserId);
+            }
+            if (createAppraisalColumns.has('period_type')) {
+                restoreFields.push(`period_type = $${restoreParam++}`);
+                restoreValues.push(normalizedPeriodType);
+            }
+            if (createAppraisalColumns.has('period_year')) {
+                restoreFields.push(`period_year = $${restoreParam++}`);
+                restoreValues.push(periodYearNum);
+            }
+            if (createAppraisalColumns.has('period_quarter')) {
+                restoreFields.push(`period_quarter = $${restoreParam++}`);
+                restoreValues.push(normalizedQuarter);
+            }
+            if (createAppraisalColumns.has('period_semi')) {
+                restoreFields.push(`period_semi = $${restoreParam++}`);
+                restoreValues.push(periodSemiNum);
             }
             if (createAppraisalColumns.has('branch_department')) {
                 restoreFields.push(`branch_department = $${restoreParam++}`);
@@ -912,10 +714,9 @@ const createAppraisal = async (req, res) => {
         // Insert main appraisal record (schema-aware)
         if (!appraisalId) {
             const periodYearNumInsert = parseInt(periodYear) || null;
-            const periodSemiNum = normalizedPeriodType === 'Semi-annually' ? (parseInt(periodSemi) || 1) : null;
 
-            const cols = ['staff_id', 'appraisal_period_id'];
-            const values = [staffId, appraisalPeriodId];
+            const cols = [];
+            const values = [];
 
             if (createAppraisalColumns.has('supervisor_id')) {
                 cols.push('supervisor_id');
@@ -1333,15 +1134,6 @@ const getAppraisals = async (req, res) => {
         const { userId, periodYear, status } = req.query;
         const currentUser = req.user;
 
-        let supervisorStaffId = null;
-        if (currentUser.role_name === 'Supervisor') {
-            const staff = await db.query(
-                `SELECT id FROM staff WHERE user_id = $1 AND deleted_at IS NULL`,
-                [currentUser.id]
-            );
-            supervisorStaffId = staff.rows[0]?.id || null;
-        }
-
         let query = `
              SELECT pa.*, 
                     u.email as user_email,
@@ -1353,8 +1145,8 @@ const getAppraisals = async (req, res) => {
              LEFT JOIN users u ON pa.user_id = u.id
              LEFT JOIN staff_profiles sp ON u.id = sp.user_id
              LEFT JOIN departments d ON u.department_id = d.id
-             LEFT JOIN staff sup_staff ON pa.supervisor_id = sup_staff.id
-             LEFT JOIN staff_profiles sup ON sup_staff.user_id = sup.user_id
+             LEFT JOIN users sup_user ON pa.supervisor_id = sup_user.id
+             LEFT JOIN staff_profiles sup ON sup_user.id = sup.user_id
              WHERE (pa.deleted_at IS NULL AND pa.user_id IS NOT NULL)
          `;
 
@@ -1367,10 +1159,9 @@ const getAppraisals = async (req, res) => {
             params.push(currentUser.id);
             paramCount++;
         } else if (currentUser.role_name === 'Supervisor') {
-            query += ` AND (pa.supervisor_id = $${paramCount} OR pa.user_id = $${paramCount + 1})`;
-            params.push(supervisorStaffId || -1);
+            query += ` AND (pa.supervisor_id = $${paramCount} OR pa.user_id = $${paramCount})`;
             params.push(currentUser.id);
-            paramCount += 2;
+            paramCount++;
         } else if (currentUser.role_name === 'HOD') {
             query += ` AND u.department_id = $${paramCount}`;
             params.push(currentUser.department_id);
@@ -1422,8 +1213,8 @@ const getAppraisalById = async (req, res) => {
             JOIN users u ON pa.user_id = u.id
             JOIN staff_profiles sp ON u.id = sp.user_id
             LEFT JOIN departments d ON u.department_id = d.id
-            LEFT JOIN staff sup_staff ON pa.supervisor_id = sup_staff.id
-            LEFT JOIN staff_profiles sup ON sup_staff.user_id = sup.user_id
+            LEFT JOIN users sup_user ON pa.supervisor_id = sup_user.id
+            LEFT JOIN staff_profiles sup ON sup_user.id = sup.user_id
             WHERE pa.id = $1 AND pa.deleted_at IS NULL`,
             [id]
         );
@@ -1596,29 +1387,7 @@ const updateAppraisal = async (req, res) => {
 
         const targetUserId = userId || existing.rows[0]?.user_id;
         if (targetUserId) {
-            const defaultSupervisor = await client.query(
-                `SELECT id FROM staff WHERE deleted_at IS NULL ORDER BY id ASC LIMIT 1`
-            );
-            const defaultSupervisorId = defaultSupervisor.rows[0]?.id;
-
-            // Prefer the employee's actual line manager from staff.supervisor_id as the fallback.
-            // This prevents overwriting everyone to the first staff record when updating.
-            let fallbackSupervisorStaffId = defaultSupervisorId;
-            try {
-                const staffRow = await client.query(
-                    `SELECT supervisor_id
-                     FROM staff
-                     WHERE user_id = $1 AND deleted_at IS NULL
-                     ORDER BY id ASC
-                     LIMIT 1`,
-                    [targetUserId]
-                );
-                fallbackSupervisorStaffId = staffRow.rows[0]?.supervisor_id || defaultSupervisorId;
-            } catch (e) {
-                fallbackSupervisorStaffId = defaultSupervisorId;
-            }
-
-            const resolvedSupervisorId = await resolveSupervisorStaffId(client, targetUserId, fallbackSupervisorStaffId);
+            const resolvedSupervisorId = await resolveSupervisorStaffId(client, targetUserId, null);
             if (resolvedSupervisorId && appraisalColumns.has('supervisor_id')) {
                 updateFields.push(`supervisor_id = $${paramCount++}`);
                 updateValues.push(resolvedSupervisorId);
