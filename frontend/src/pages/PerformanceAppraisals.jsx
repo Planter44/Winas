@@ -21,11 +21,11 @@ const PerformanceAppraisals = () => {
   const [quickFilter, setQuickFilter] = useState('');
 
   const isPendingReviewStatus = (status) => {
-    return ['Submitted', 'Supervisor_Review', 'HOD_Review', 'HR_Review', 'CEO_Approved'].includes(status);
+    return ['Draft', 'Submitted', 'Supervisor_Review', 'HOD_Review', 'HR_Review', 'CEO_Approved'].includes(status);
   };
 
   const isFinalizedGroupStatus = (status) => {
-    return ['Finalized', 'Draft'].includes(status);
+    return ['Finalized'].includes(status);
   };
 
   useEffect(() => {

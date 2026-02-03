@@ -87,15 +87,16 @@ const getDashboardStats = async (req, res) => {
                 const performanceAppraisalStats = await db.query(
                     `SELECT
                         COUNT(*) as total,
-                        SUM(CASE WHEN status IN ('Draft', 'Finalized') THEN 1 ELSE 0 END) as finalized,
-                        SUM(CASE WHEN status IN ('Submitted', 'Supervisor_Review', 'HOD_Review', 'HR_Review', 'CEO_Approved') THEN 1 ELSE 0 END) as pending_review
+                        SUM(CASE WHEN status = 'Finalized' THEN 1 ELSE 0 END) as finalized,
+                        SUM(CASE WHEN status IN ('Draft', 'Submitted', 'Supervisor_Review', 'HOD_Review', 'HR_Review', 'CEO_Approved') THEN 1 ELSE 0 END) as pending_review,
+                        AVG(CASE WHEN status = 'Finalized' THEN total_performance_rating ELSE NULL END) as average_rating
                      FROM performance_appraisals
                      WHERE period_year = $1 AND deleted_at IS NULL`,
                     [currentYear]
                 );
                 stats.performanceAppraisalStats = performanceAppraisalStats.rows[0];
             } catch (e) {
-                stats.performanceAppraisalStats = { total: 0, finalized: 0, pending_review: 0 };
+                stats.performanceAppraisalStats = { total: 0, finalized: 0, pending_review: 0, average_rating: null };
             }
 
         } else if (currentUser.role_name === 'HOD') {
@@ -142,15 +143,16 @@ const getDashboardStats = async (req, res) => {
                 const performanceAppraisalStats = await db.query(
                     `SELECT
                         COUNT(*) as total,
-                        SUM(CASE WHEN status IN ('Draft', 'Finalized') THEN 1 ELSE 0 END) as finalized,
-                        SUM(CASE WHEN status IN ('Submitted', 'Supervisor_Review', 'HOD_Review', 'HR_Review', 'CEO_Approved') THEN 1 ELSE 0 END) as pending_review
+                        SUM(CASE WHEN status = 'Finalized' THEN 1 ELSE 0 END) as finalized,
+                        SUM(CASE WHEN status IN ('Draft', 'Submitted', 'Supervisor_Review', 'HOD_Review', 'HR_Review', 'CEO_Approved') THEN 1 ELSE 0 END) as pending_review,
+                        AVG(CASE WHEN status = 'Finalized' THEN total_performance_rating ELSE NULL END) as average_rating
                      FROM performance_appraisals
                      WHERE period_year = $1 AND deleted_at IS NULL`,
                     [currentYear]
                 );
                 stats.performanceAppraisalStats = performanceAppraisalStats.rows[0];
             } catch (e) {
-                stats.performanceAppraisalStats = { total: 0, finalized: 0, pending_review: 0 };
+                stats.performanceAppraisalStats = { total: 0, finalized: 0, pending_review: 0, average_rating: null };
             }
 
             const departmentBreakdown = await db.query(

@@ -314,7 +314,9 @@ const Dashboard = () => {
             <div>
               <p className="text-sm text-green-700 mb-1 font-medium">Avg Performance</p>
               <p className="text-3xl font-bold text-green-900">
-                {stats?.appraisalStats?.average_score ? parseFloat(stats.appraisalStats.average_score).toFixed(2) : 'N/A'}
+                {stats?.performanceAppraisalStats?.average_rating
+                  ? parseFloat(stats.performanceAppraisalStats.average_rating).toFixed(2)
+                  : 'N/A'}
               </p>
             </div>
             <TrendingUp className="text-green-500" size={36} />

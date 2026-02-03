@@ -14,10 +14,10 @@ router.get('/soft-skills', authenticateToken, controller.getSoftSkills);
 router.get('/rating-key', authenticateToken, controller.getRatingKey);
 
 // CRUD for appraisals
-router.post('/', authenticateToken, authorizeRoles('Supervisor', 'HOD', 'HR', 'CEO', 'Super Admin'), controller.createAppraisal);
+router.post('/', authenticateToken, authorizeRoles('HOD', 'HR', 'CEO', 'Super Admin'), controller.createAppraisal);
 router.get('/', authenticateToken, controller.getAppraisals);
 router.get('/:id', authenticateToken, controller.getAppraisalById);
-router.put('/:id', authenticateToken, authorizeRoles('Supervisor', 'HOD', 'HR', 'CEO', 'Super Admin'), controller.updateAppraisal);
+router.put('/:id', authenticateToken, authorizeRoles('Staff', 'Supervisor', 'HOD', 'HR', 'CEO', 'Super Admin'), controller.updateAppraisal);
 router.delete('/:id', authenticateToken, authorizeRoles('HR', 'CEO', 'Super Admin'), controller.deleteAppraisal);
 
 // KRA management (HR and above)

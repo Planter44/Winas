@@ -61,8 +61,7 @@ const upsertUser = async ({
         `INSERT INTO users (email, password_hash, role_id, department_id, supervisor_id, is_active)
          VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (email)
-         DO UPDATE SET password_hash = EXCLUDED.password_hash,
-                       role_id = EXCLUDED.role_id,
+         DO UPDATE SET role_id = EXCLUDED.role_id,
                        department_id = EXCLUDED.department_id,
                        supervisor_id = EXCLUDED.supervisor_id,
                        is_active = EXCLUDED.is_active,
