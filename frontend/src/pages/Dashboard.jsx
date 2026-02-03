@@ -314,7 +314,8 @@ const Dashboard = () => {
             <div>
               <p className="text-sm text-green-700 mb-1 font-medium">Avg Performance</p>
               <p className="text-3xl font-bold text-green-900">
-                {stats?.performanceAppraisalStats?.average_rating
+                {stats?.performanceAppraisalStats?.average_rating !== null &&
+                stats?.performanceAppraisalStats?.average_rating !== undefined
                   ? parseFloat(stats.performanceAppraisalStats.average_rating).toFixed(2)
                   : 'N/A'}
               </p>

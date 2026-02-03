@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { performanceAppraisalAPI } from '../services/api';
 import { 
   Plus, Eye, Edit2, Trash2, Search, Filter, 
-  Calendar, User, Award, CheckCircle, Clock, AlertCircle 
+  Calendar, User, Award, CheckCircle, Clock, AlertCircle, ArrowLeft 
 } from 'lucide-react';
 
 const PerformanceAppraisals = () => {
@@ -121,20 +121,16 @@ const PerformanceAppraisals = () => {
     return true;
   });
 
-  const canCreate = hasRole('Supervisor') || hasRole('HOD') || hasRole('HR') || hasRole('Super Admin') || hasRole('CEO');
+  const canCreate = hasRole('HOD') || hasRole('HR') || hasRole('Super Admin') || hasRole('CEO');
 
   const canEditAppraisal = (appraisal) => {
     const appraisalUserId = appraisal?.user_id;
     const isOwn = user?.id && appraisalUserId && String(user.id) === String(appraisalUserId);
 
-    if (isOwn && !(hasRole('CEO') || hasRole('Super Admin'))) return false;
-
     if (hasRole('CEO') || hasRole('Super Admin')) return true;
-
     if (hasRole('HR')) return true;
-
     if (hasRole('HOD') || hasRole('Supervisor')) return true;
-
+    if (isOwn) return true;
     return false;
   };
 
@@ -153,14 +149,37 @@ const PerformanceAppraisals = () => {
     years.push(y);
   }
 
+  const groupTitle = quickFilter === 'pending_review'
+    ? 'Pending Review'
+    : quickFilter === 'finalized'
+      ? 'Finalized'
+      : '';
+
   return (
     <Layout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Performance Appraisals</h1>
-            <p className="text-gray-600 mt-1">WINAS SACCO Staff Performance Evaluation</p>
+          <div className="flex items-start gap-3">
+            {(quickFilter === 'pending_review' || quickFilter === 'finalized') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickFilter('');
+                  navigate('/performance-appraisals');
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+                title="Back"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+            )}
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Performance Appraisals{groupTitle ? ` - ${groupTitle}` : ''}
+              </h1>
+              <p className="text-gray-600 mt-1">WINAS SACCO Staff Performance Evaluation</p>
+            </div>
           </div>
           {canCreate && (
             <Link
@@ -347,6 +366,7 @@ const PerformanceAppraisals = () => {
               onClick={() => {
                 setFilterStatus('');
                 setQuickFilter('pending_review');
+                navigate('/performance-appraisals?group=pending_review');
               }}
               className="bg-yellow-50 rounded-lg p-4 text-left hover:bg-yellow-100 transition-colors"
             >
@@ -360,6 +380,7 @@ const PerformanceAppraisals = () => {
               onClick={() => {
                 setFilterStatus('');
                 setQuickFilter('finalized');
+                navigate('/performance-appraisals?group=finalized');
               }}
               className="bg-green-50 rounded-lg p-4 text-left hover:bg-green-100 transition-colors"
             >

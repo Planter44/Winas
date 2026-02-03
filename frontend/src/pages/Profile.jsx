@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
-import { authAPI, userAPI } from '../services/api';
+import { authAPI } from '../services/api';
 import { User, Mail, Phone, MapPin, Calendar, Briefcase, Lock, Save } from 'lucide-react';
 
 const Profile = () => {
@@ -38,13 +38,23 @@ const Profile = () => {
     setMessage({ type: '', text: '' });
 
     try {
-      await userAPI.update(user.id, {
+      const res = await authAPI.updateProfile({
         phone: profile.phone,
         address: profile.address,
         city: profile.city,
         emergencyContactName: profile.emergency_contact_name,
-        emergencyContactPhone: profile.emergency_contact_phone
+        emergencyContactPhone: profile.emergency_contact_phone,
+        nextOfKinName: profile.next_of_kin_name,
+        nextOfKinPhone: profile.next_of_kin_phone,
+        nextOfKinIdNumber: profile.next_of_kin_id_number,
+        nextOfKinRelationship: profile.next_of_kin_relationship
       });
+
+      if (res.data?.profile) {
+        setProfile(res.data.profile);
+      } else {
+        fetchProfile();
+      }
 
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
     } catch (error) {
@@ -252,6 +262,74 @@ const Profile = () => {
                       className="input-field"
                       placeholder="+254700000000"
                     />
+                  </div>
+
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 mt-6">Next of Kin</h3>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Next of Kin Name
+                    </label>
+                    <input
+                      type="text"
+                      value={profile?.next_of_kin_name || ''}
+                      onChange={(e) =>
+                        setProfile({ ...profile, next_of_kin_name: e.target.value })
+                      }
+                      className="input-field"
+                      placeholder="Next of kin name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Next of Kin Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={profile?.next_of_kin_phone || ''}
+                      onChange={(e) =>
+                        setProfile({ ...profile, next_of_kin_phone: e.target.value })
+                      }
+                      className="input-field"
+                      placeholder="+254700000000"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Next of Kin ID Number
+                    </label>
+                    <input
+                      type="text"
+                      value={profile?.next_of_kin_id_number || ''}
+                      onChange={(e) =>
+                        setProfile({ ...profile, next_of_kin_id_number: e.target.value })
+                      }
+                      className="input-field"
+                      placeholder="ID Number"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Relationship
+                    </label>
+                    <select
+                      value={profile?.next_of_kin_relationship || ''}
+                      onChange={(e) =>
+                        setProfile({ ...profile, next_of_kin_relationship: e.target.value })
+                      }
+                      className="input-field"
+                    >
+                      <option value="">Select Relationship</option>
+                      <option value="Spouse">Spouse</option>
+                      <option value="Parent">Parent</option>
+                      <option value="Sibling">Sibling</option>
+                      <option value="Child">Child</option>
+                      <option value="Guardian">Guardian</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
                 </div>
 

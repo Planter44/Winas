@@ -109,6 +109,30 @@ const Settings = () => {
     }
   };
 
+  const handleDeleteCompanyLogo = async () => {
+    const ok = window.confirm('Remove the current company logo and revert to the default?');
+    if (!ok) return;
+
+    setLogoUploading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      await settingsAPI.deleteCompanyLogo();
+      setCompanyLogoUrl('');
+      setLogoFile(null);
+      refreshSettings();
+      fetchData();
+      setMessage({ type: 'success', text: 'Company logo reset successfully!' });
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.error || 'Failed to reset company logo'
+      });
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
   const handleUploadCompanyLogo = async () => {
     if (!logoFile) {
       setMessage({ type: 'error', text: 'Please select a logo file to upload' });
@@ -483,6 +507,18 @@ const Settings = () => {
                             <p className="text-sm text-gray-500">No logo uploaded</p>
                           </div>
                         )}
+
+                        <div className="mt-4">
+                          <button
+                            type="button"
+                            onClick={handleDeleteCompanyLogo}
+                            disabled={logoUploading || !resolvedCompanyLogoUrl}
+                            className="btn-secondary w-full flex items-center justify-center disabled:opacity-50"
+                          >
+                            <Trash2 className="mr-2" size={18} />
+                            Remove Logo
+                          </button>
+                        </div>
                       </div>
 
                       <div className="card bg-gray-50 border border-gray-200">

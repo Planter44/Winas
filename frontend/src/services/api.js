@@ -40,7 +40,8 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   getProfile: () => api.get('/auth/profile'),
-  changePassword: (data) => api.post('/auth/change-password', data)
+  changePassword: (data) => api.post('/auth/change-password', data),
+  updateProfile: (data) => api.put('/auth/profile', data)
 };
 
 export const userAPI = {
@@ -134,6 +135,7 @@ export const settingsAPI = {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
   },
+  deleteCompanyLogo: () => api.delete('/settings/company-logo'),
   delete: (key) => api.delete(`/settings/${key}`)
 };
 

@@ -89,7 +89,7 @@ const getDashboardStats = async (req, res) => {
                         COUNT(*) as total,
                         SUM(CASE WHEN status = 'Finalized' THEN 1 ELSE 0 END) as finalized,
                         SUM(CASE WHEN status IN ('Draft', 'Submitted', 'Supervisor_Review', 'HOD_Review', 'HR_Review', 'CEO_Approved') THEN 1 ELSE 0 END) as pending_review,
-                        AVG(CASE WHEN status = 'Finalized' THEN total_performance_rating ELSE NULL END) as average_rating
+                        AVG(NULLIF(total_performance_rating, 0)) as average_rating
                      FROM performance_appraisals
                      WHERE period_year = $1 AND deleted_at IS NULL`,
                     [currentYear]
@@ -145,7 +145,7 @@ const getDashboardStats = async (req, res) => {
                         COUNT(*) as total,
                         SUM(CASE WHEN status = 'Finalized' THEN 1 ELSE 0 END) as finalized,
                         SUM(CASE WHEN status IN ('Draft', 'Submitted', 'Supervisor_Review', 'HOD_Review', 'HR_Review', 'CEO_Approved') THEN 1 ELSE 0 END) as pending_review,
-                        AVG(CASE WHEN status = 'Finalized' THEN total_performance_rating ELSE NULL END) as average_rating
+                        AVG(NULLIF(total_performance_rating, 0)) as average_rating
                      FROM performance_appraisals
                      WHERE period_year = $1 AND deleted_at IS NULL`,
                     [currentYear]

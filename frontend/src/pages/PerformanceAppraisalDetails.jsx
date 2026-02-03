@@ -411,11 +411,10 @@ const PerformanceAppraisalDetails = () => {
     const appraisalUserId = appraisal?.user_id;
     const isOwn = user?.id && appraisalUserId && String(user.id) === String(appraisalUserId);
 
-    if (isOwn && !(hasRole('CEO') || hasRole('Super Admin'))) return false;
-
     if (hasRole('CEO') || hasRole('Super Admin')) return true;
     if (hasRole('HR')) return true;
     if (hasRole('HOD') || hasRole('Supervisor')) return true;
+    if (isOwn) return true;
     return false;
   })();
 

@@ -152,8 +152,157 @@ const getProfile = async (req, res) => {
     }
 };
 
+const updateProfile = async (req, res) => {
+    const client = await db.pool.connect();
+
+    try {
+        const userId = req.user.id;
+        const {
+            phone,
+            secondaryPhone,
+            nationalId,
+            kraPin,
+            educationLevel,
+            dateOfBirth,
+            gender,
+            maritalStatus,
+            address,
+            city,
+            emergencyContactName,
+            emergencyContactPhone,
+            nextOfKinName,
+            nextOfKinPhone,
+            nextOfKinIdNumber,
+            nextOfKinRelationship
+        } = req.body;
+
+        await client.query('BEGIN');
+
+        await client.query(
+            `INSERT INTO staff_profiles (user_id, first_name, last_name, employee_number, job_title)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (user_id) DO NOTHING`,
+            [
+                userId,
+                req.user.first_name || '',
+                req.user.last_name || '',
+                req.user.employee_number || null,
+                req.user.job_title || null
+            ]
+        );
+
+        const fields = [];
+        const values = [];
+        let paramCount = 1;
+
+        if (phone !== undefined) {
+            fields.push(`phone = $${paramCount++}`);
+            values.push(phone);
+        }
+        if (secondaryPhone !== undefined) {
+            fields.push(`secondary_phone = $${paramCount++}`);
+            values.push(secondaryPhone);
+        }
+        if (nationalId !== undefined) {
+            fields.push(`national_id = $${paramCount++}`);
+            values.push(nationalId);
+        }
+        if (kraPin !== undefined) {
+            fields.push(`kra_pin = $${paramCount++}`);
+            values.push(kraPin);
+        }
+        if (educationLevel !== undefined) {
+            fields.push(`education_level = $${paramCount++}`);
+            values.push(educationLevel);
+        }
+        if (dateOfBirth !== undefined) {
+            fields.push(`date_of_birth = $${paramCount++}`);
+            values.push(dateOfBirth);
+        }
+        if (gender !== undefined) {
+            fields.push(`gender = $${paramCount++}`);
+            values.push(gender);
+        }
+        if (maritalStatus !== undefined) {
+            fields.push(`marital_status = $${paramCount++}`);
+            values.push(maritalStatus);
+        }
+        if (address !== undefined) {
+            fields.push(`address = $${paramCount++}`);
+            values.push(address);
+        }
+        if (city !== undefined) {
+            fields.push(`city = $${paramCount++}`);
+            values.push(city);
+        }
+        if (emergencyContactName !== undefined) {
+            fields.push(`emergency_contact_name = $${paramCount++}`);
+            values.push(emergencyContactName);
+        }
+        if (emergencyContactPhone !== undefined) {
+            fields.push(`emergency_contact_phone = $${paramCount++}`);
+            values.push(emergencyContactPhone);
+        }
+        if (nextOfKinName !== undefined) {
+            fields.push(`next_of_kin_name = $${paramCount++}`);
+            values.push(nextOfKinName);
+        }
+        if (nextOfKinPhone !== undefined) {
+            fields.push(`next_of_kin_phone = $${paramCount++}`);
+            values.push(nextOfKinPhone);
+        }
+        if (nextOfKinIdNumber !== undefined) {
+            fields.push(`next_of_kin_id_number = $${paramCount++}`);
+            values.push(nextOfKinIdNumber);
+        }
+        if (nextOfKinRelationship !== undefined) {
+            fields.push(`next_of_kin_relationship = $${paramCount++}`);
+            values.push(nextOfKinRelationship);
+        }
+
+        if (fields.length > 0) {
+            values.push(userId);
+            await client.query(
+                `UPDATE staff_profiles
+                 SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+                 WHERE user_id = $${paramCount}`,
+                values
+            );
+        }
+
+        await client.query('COMMIT');
+
+        await logAudit(userId, 'UPDATE_PROFILE', 'User', userId, req.body, req);
+
+        const updated = await db.query(
+            `SELECT u.id, u.email, u.role_id, u.department_id, u.supervisor_id, u.last_login,
+                    r.name as role_name, r.level as role_level,
+                    d.name as department_name,
+                    sp.*,
+                    s.first_name as supervisor_first_name,
+                    s.last_name as supervisor_last_name
+             FROM users u
+             JOIN roles r ON u.role_id = r.id
+             LEFT JOIN departments d ON u.department_id = d.id
+             LEFT JOIN staff_profiles sp ON u.id = sp.user_id
+             LEFT JOIN staff_profiles s ON u.supervisor_id = s.user_id
+             WHERE u.id = $1`,
+            [userId]
+        );
+
+        res.json({ message: 'Profile updated successfully', profile: updated.rows[0] });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Update profile error:', error);
+        res.status(500).json({ error: 'Failed to update profile' });
+    } finally {
+        client.release();
+    }
+};
+
 module.exports = {
     login,
     changePassword,
-    getProfile
+    getProfile,
+    updateProfile
 };

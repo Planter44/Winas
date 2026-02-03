@@ -386,6 +386,191 @@ const computeSectionCTotal = ({ softSkillScores, fallback }) => {
     return Number.isFinite(fb) ? fb : 0;
 };
 
+const normalizeCommentText = (value) => {
+    if (value === undefined || value === null) return '';
+    if (typeof value === 'string') return value.trim();
+    return String(value).trim();
+};
+
+const hasNonEmptyComment = (value) => normalizeCommentText(value).length > 0;
+
+const toPositiveNumber = (value) => {
+    if (value === undefined || value === null) return null;
+    if (typeof value === 'string' && value.trim() === '') return null;
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    return n > 0 ? n : null;
+};
+
+const hasAnyPositiveNumberField = (obj, keys) => {
+    if (!obj) return false;
+    return keys.some((k) => toPositiveNumber(obj?.[k]) !== null);
+};
+
+const hasSectionBMeaningfulInput = ({ kraScores, performanceSections, sectionBTotal }) => {
+    const sectionBTotalNum = Number(sectionBTotal);
+    if (Number.isFinite(sectionBTotalNum) && sectionBTotalNum > 0) return true;
+
+    const kraKeys = [
+        'targetTotal',
+        'target_total',
+        'actualTotal',
+        'actual_total',
+        'percentAchieved',
+        'percent_achieved',
+        'weightedAverage',
+        'weighted_average',
+        'janTarget',
+        'jan_target',
+        'febTarget',
+        'feb_target',
+        'marTarget',
+        'mar_target',
+        'aprTarget',
+        'apr_target',
+        'mayTarget',
+        'may_target',
+        'junTarget',
+        'jun_target',
+        'julTarget',
+        'jul_target',
+        'augTarget',
+        'aug_target',
+        'sepTarget',
+        'sep_target',
+        'octTarget',
+        'oct_target',
+        'novTarget',
+        'nov_target',
+        'decTarget',
+        'dec_target',
+        'janActual',
+        'jan_actual',
+        'febActual',
+        'feb_actual',
+        'marActual',
+        'mar_actual',
+        'aprActual',
+        'apr_actual',
+        'mayActual',
+        'may_actual',
+        'junActual',
+        'jun_actual',
+        'julActual',
+        'jul_actual',
+        'augActual',
+        'aug_actual',
+        'sepActual',
+        'sep_actual',
+        'octActual',
+        'oct_actual',
+        'novActual',
+        'nov_actual',
+        'decActual',
+        'dec_actual'
+    ];
+
+    if (Array.isArray(kraScores) && kraScores.some(s => hasAnyPositiveNumberField(s, kraKeys))) {
+        return true;
+    }
+
+    if (Array.isArray(performanceSections)) {
+        for (const sec of performanceSections) {
+            const rows = Array.isArray(sec?.rows) ? sec.rows : [];
+            if (rows.some(r => hasAnyPositiveNumberField(r, kraKeys))) return true;
+        }
+    }
+
+    return false;
+};
+
+const hasSectionCMeaningfulInput = ({ softSkillScores, sectionCTotal }) => {
+    const sectionCTotalNum = Number(sectionCTotal);
+    if (Number.isFinite(sectionCTotalNum) && sectionCTotalNum > 0) return true;
+
+    if (Array.isArray(softSkillScores) && softSkillScores.some(s => toPositiveNumber(s?.rating) !== null)) {
+        return true;
+    }
+
+    return false;
+};
+
+const STATUS_RANK = {
+    Draft: 0,
+    Submitted: 1,
+    Supervisor_Review: 2,
+    HOD_Review: 3,
+    HR_Review: 4,
+    CEO_Approved: 5,
+    Finalized: 6
+};
+
+const getSignatureDateUpdateFragments = ({ derivedStatus, columns }) => {
+    const rank = STATUS_RANK[derivedStatus] ?? 0;
+    const fragments = [];
+
+    if (rank >= STATUS_RANK.Submitted && columns.has('appraisee_signature_date')) {
+        fragments.push(`appraisee_signature_date = COALESCE(appraisee_signature_date, CURRENT_DATE)`);
+    }
+    if (rank >= STATUS_RANK.Supervisor_Review && columns.has('appraiser_signature_date')) {
+        fragments.push(`appraiser_signature_date = COALESCE(appraiser_signature_date, CURRENT_DATE)`);
+    }
+    if (rank >= STATUS_RANK.HOD_Review && columns.has('hod_signature_date')) {
+        fragments.push(`hod_signature_date = COALESCE(hod_signature_date, CURRENT_DATE)`);
+    }
+    if (rank >= STATUS_RANK.HR_Review && columns.has('hr_signature_date')) {
+        fragments.push(`hr_signature_date = COALESCE(hr_signature_date, CURRENT_DATE)`);
+    }
+    if (rank >= STATUS_RANK.CEO_Approved && columns.has('ceo_signature_date')) {
+        fragments.push(`ceo_signature_date = COALESCE(ceo_signature_date, CURRENT_DATE)`);
+    }
+
+    return fragments;
+};
+
+const derivePerformanceAppraisalStatusFromCompleteness = ({
+    hasSectionB,
+    hasSectionC,
+    appraiserComments,
+    hodComments,
+    hrComments,
+    ceoComments
+}) => {
+    if (!hasSectionB && !hasSectionC) return 'Draft';
+    if (!hasSectionB || !hasSectionC) return 'Draft';
+
+    if (!hasNonEmptyComment(appraiserComments)) return 'Submitted';
+    if (!hasNonEmptyComment(hodComments)) return 'Supervisor_Review';
+    if (!hasNonEmptyComment(hrComments)) return 'HOD_Review';
+    if (!hasNonEmptyComment(ceoComments)) return 'HR_Review';
+
+    return 'Finalized';
+};
+
+const derivePerformanceAppraisalStatus = ({
+    kraScores,
+    performanceSections,
+    sectionBTotal,
+    softSkillScores,
+    sectionCTotal,
+    appraiserComments,
+    hodComments,
+    hrComments,
+    ceoComments
+}) => {
+    const hasSectionB = hasSectionBMeaningfulInput({ kraScores, performanceSections, sectionBTotal });
+    const hasSectionC = hasSectionCMeaningfulInput({ softSkillScores, sectionCTotal });
+
+    return derivePerformanceAppraisalStatusFromCompleteness({
+        hasSectionB,
+        hasSectionC,
+        appraiserComments,
+        hodComments,
+        hrComments,
+        ceoComments
+    });
+};
+
 // Get all pillars with their KRAs
 const getPillarsWithKRAs = async (req, res) => {
     try {
@@ -1110,6 +1295,35 @@ const createAppraisal = async (req, res) => {
             }
         }
 
+        const derivedStatus = derivePerformanceAppraisalStatus({
+            kraScores,
+            performanceSections,
+            sectionBTotal: sectionBTotalNum,
+            softSkillScores,
+            sectionCTotal: sectionCTotalNum,
+            appraiserComments,
+            hodComments,
+            hrComments,
+            ceoComments
+        });
+
+        if (createAppraisalColumns.has('status')) {
+            const updates = [];
+            const vals = [];
+            let p = 1;
+
+            updates.push(`status = $${p++}`);
+            vals.push(derivedStatus);
+
+            updates.push(...getSignatureDateUpdateFragments({ derivedStatus, columns: createAppraisalColumns }));
+
+            vals.push(appraisalId);
+            await client.query(
+                `UPDATE performance_appraisals SET ${updates.join(', ')} WHERE id = $${p}`,
+                vals
+            );
+        }
+
         await client.query('COMMIT');
 
         await logAudit(creatorId, 'CREATE_PERFORMANCE_APPRAISAL', 'PerformanceAppraisal', appraisalId,
@@ -1181,16 +1395,90 @@ const getAppraisals = async (req, res) => {
             paramCount++;
         }
 
-        if (status) {
-            query += ` AND pa.status = $${paramCount}`;
-            params.push(status);
-            paramCount++;
-        }
-
         query += ' ORDER BY pa.period_year DESC NULLS LAST, pa.period_quarter DESC NULLS LAST, pa.created_at DESC';
 
         const result = await db.query(query, params);
-        res.json(result.rows);
+
+        const sectionBMap = new Map();
+        const sectionCMap = new Map();
+        const kraMap = new Map();
+
+        try {
+            const bRes = await db.query(
+                `SELECT appraisal_id, COUNT(*)::int AS c
+                 FROM performance_section_scores
+                 WHERE COALESCE(target_total, 0) > 0
+                    OR COALESCE(actual_total, 0) > 0
+                    OR COALESCE(percent_achieved, 0) > 0
+                    OR COALESCE(weighted_average, 0) > 0
+                 GROUP BY appraisal_id`
+            );
+            for (const r of bRes.rows) {
+                sectionBMap.set(String(r.appraisal_id), (Number(r.c) || 0) > 0);
+            }
+        } catch (e) {
+        }
+
+        try {
+            const kRes = await db.query(
+                `SELECT appraisal_id, COUNT(*)::int AS c
+                 FROM appraisal_kra_scores
+                 WHERE COALESCE(target_total, 0) > 0
+                    OR COALESCE(actual_total, 0) > 0
+                    OR COALESCE(percent_achieved, 0) > 0
+                    OR COALESCE(weighted_average, 0) > 0
+                 GROUP BY appraisal_id`
+            );
+            for (const r of kRes.rows) {
+                kraMap.set(String(r.appraisal_id), (Number(r.c) || 0) > 0);
+            }
+        } catch (e) {
+        }
+
+        try {
+            const cRes = await db.query(
+                `SELECT appraisal_id, COUNT(*)::int AS c
+                 FROM appraisal_soft_skill_scores
+                 WHERE rating IS NOT NULL AND rating > 0
+                 GROUP BY appraisal_id`
+            );
+            for (const r of cRes.rows) {
+                sectionCMap.set(String(r.appraisal_id), (Number(r.c) || 0) > 0);
+            }
+        } catch (e) {
+        }
+
+        const rows = [];
+        for (const row of result.rows) {
+            const idKey = String(row.id);
+
+            const hasSectionB =
+                Boolean(sectionBMap.get(idKey)) ||
+                Boolean(kraMap.get(idKey)) ||
+                ((parseFloat(row.section_b_total) || 0) > 0);
+
+            const hasSectionC =
+                Boolean(sectionCMap.get(idKey)) ||
+                ((parseFloat(row.section_c_total) || 0) > 0);
+
+            const derivedStatus = derivePerformanceAppraisalStatusFromCompleteness({
+                hasSectionB,
+                hasSectionC,
+                appraiserComments: row.appraiser_comments,
+                hodComments: row.hod_comments,
+                hrComments: row.hr_comments,
+                ceoComments: row.ceo_comments
+            });
+
+            if (status && String(derivedStatus) !== String(status)) continue;
+
+            rows.push({
+                ...row,
+                status: derivedStatus
+            });
+        }
+
+        res.json(rows);
     } catch (error) {
         console.error('Get appraisals error:', error);
         res.status(500).json({ error: 'Failed to fetch appraisals', details: error.message });
@@ -1271,8 +1559,27 @@ const getAppraisalById = async (req, res) => {
             performanceSectionScores = { rows: [] };
         }
 
+        const hasSectionB =
+            ((parseFloat(appraisal.rows[0]?.section_b_total) || 0) > 0) ||
+            (Array.isArray(kraScores.rows) && kraScores.rows.some(s => (parseFloat(s?.target_total) || 0) > 0 || (parseFloat(s?.actual_total) || 0) > 0 || (parseFloat(s?.percent_achieved) || 0) > 0 || (parseFloat(s?.weighted_average) || 0) > 0)) ||
+            (Array.isArray(performanceSectionScores.rows) && performanceSectionScores.rows.some(s => (parseFloat(s?.target_total) || 0) > 0 || (parseFloat(s?.actual_total) || 0) > 0 || (parseFloat(s?.percent_achieved) || 0) > 0 || (parseFloat(s?.weighted_average) || 0) > 0));
+
+        const hasSectionC =
+            ((parseFloat(appraisal.rows[0]?.section_c_total) || 0) > 0) ||
+            (Array.isArray(softSkillScores.rows) && softSkillScores.rows.some(s => (parseFloat(s?.rating) || 0) > 0));
+
+        const derivedStatus = derivePerformanceAppraisalStatusFromCompleteness({
+            hasSectionB,
+            hasSectionC,
+            appraiserComments: appraisal.rows[0]?.appraiser_comments,
+            hodComments: appraisal.rows[0]?.hod_comments,
+            hrComments: appraisal.rows[0]?.hr_comments,
+            ceoComments: appraisal.rows[0]?.ceo_comments
+        });
+
         res.json({
             ...appraisal.rows[0],
+            status: derivedStatus,
             kraScores: kraScores.rows,
             softSkillScores: softSkillScores.rows,
             courses: courses.rows,
@@ -1299,7 +1606,7 @@ const updateAppraisal = async (req, res) => {
     try {
         const { id } = req.params;
         const currentUser = req.user;
-        const {
+        let {
             userId,
             branchDepartment,
             position,
@@ -1340,8 +1647,12 @@ const updateAppraisal = async (req, res) => {
 
         const existing = await client.query(
             appraisalColumns.has('deleted_at')
-                ? `SELECT id, user_id FROM performance_appraisals WHERE id = $1 AND deleted_at IS NULL`
-                : `SELECT id, user_id FROM performance_appraisals WHERE id = $1`,
+                ? `SELECT id, user_id, status, section_b_total, section_c_total, appraiser_comments, hod_comments, hr_comments, ceo_comments
+                   FROM performance_appraisals
+                   WHERE id = $1 AND deleted_at IS NULL`
+                : `SELECT id, user_id, status, section_b_total, section_c_total, appraiser_comments, hod_comments, hr_comments, ceo_comments
+                   FROM performance_appraisals
+                   WHERE id = $1`,
             [id]
         );
         if (existing.rows.length === 0) {
@@ -1349,13 +1660,9 @@ const updateAppraisal = async (req, res) => {
             return res.status(404).json({ error: 'Appraisal not found' });
         }
 
-        const existingUserId = existing.rows[0]?.user_id;
+        const existingRow = existing.rows[0] || {};
+        const existingUserId = existingRow?.user_id;
         const role = (currentUser?.role_name || '').trim();
-
-        if (existingUserId && currentUser.id === existingUserId && !(role === 'CEO' || role === 'Super Admin')) {
-            await client.query('ROLLBACK');
-            return res.status(403).json({ error: 'Access denied. Insufficient permissions.' });
-        }
 
         const allowed = await canAccessAppraisalForUserId(client, currentUser, existingUserId);
         if (!allowed) {
@@ -1370,6 +1677,76 @@ const updateAppraisal = async (req, res) => {
             }
         }
 
+        const isOwn = existingUserId && String(currentUser.id) === String(existingUserId);
+
+        if (!isPrivilegedRole(currentUser) && !isOwn) {
+            appraiseeComments = undefined;
+        }
+
+        if (!isPrivilegedRole(currentUser)) {
+            if (role === 'Supervisor' && !isOwn) {
+                userId = undefined;
+                branchDepartment = undefined;
+                position = undefined;
+                pfNumber = undefined;
+                supervisorDesignation = undefined;
+                appraisalDate = undefined;
+                periodType = undefined;
+                periodYear = undefined;
+                periodQuarter = undefined;
+                periodSemi = undefined;
+                status = undefined;
+                performanceSections = undefined;
+                kraScores = undefined;
+                sectionBTotal = undefined;
+                courses = undefined;
+                developmentPlans = undefined;
+                hodComments = undefined;
+                hrComments = undefined;
+                ceoComments = undefined;
+            }
+
+            if (role === 'Supervisor' && isOwn) {
+                userId = undefined;
+                branchDepartment = undefined;
+                position = undefined;
+                pfNumber = undefined;
+                supervisorDesignation = undefined;
+                appraisalDate = undefined;
+                periodType = undefined;
+                periodYear = undefined;
+                periodQuarter = undefined;
+                periodSemi = undefined;
+                status = undefined;
+                softSkillScores = undefined;
+                sectionCTotal = undefined;
+                appraiserComments = undefined;
+                hodComments = undefined;
+                hrComments = undefined;
+                ceoComments = undefined;
+            }
+
+            if (role === 'Staff') {
+                userId = undefined;
+                branchDepartment = undefined;
+                position = undefined;
+                pfNumber = undefined;
+                supervisorDesignation = undefined;
+                appraisalDate = undefined;
+                periodType = undefined;
+                periodYear = undefined;
+                periodQuarter = undefined;
+                periodSemi = undefined;
+                status = undefined;
+                softSkillScores = undefined;
+                sectionCTotal = undefined;
+                appraiserComments = undefined;
+                hodComments = undefined;
+                hrComments = undefined;
+                ceoComments = undefined;
+            }
+        }
+
         const shouldUpdateSectionB = (sectionBTotal !== undefined) || (kraScores && Array.isArray(kraScores)) || (performanceSections && Array.isArray(performanceSections));
         const shouldUpdateSectionC = (sectionCTotal !== undefined) || (softSkillScores && Array.isArray(softSkillScores));
 
@@ -1379,6 +1756,30 @@ const updateAppraisal = async (req, res) => {
         const sectionCTotalNum = shouldUpdateSectionC
             ? computeSectionCTotal({ softSkillScores, fallback: sectionCTotal })
             : null;
+
+        const nextSectionBTotal = sectionBTotalNum !== null
+            ? sectionBTotalNum
+            : (parseFloat(existingRow?.section_b_total) || 0);
+        const nextSectionCTotal = sectionCTotalNum !== null
+            ? sectionCTotalNum
+            : (parseFloat(existingRow?.section_c_total) || 0);
+
+        const nextAppraiserComments = (appraiserComments !== undefined) ? appraiserComments : existingRow?.appraiser_comments;
+        const nextHodComments = (hodComments !== undefined) ? hodComments : existingRow?.hod_comments;
+        const nextHrComments = (hrComments !== undefined) ? hrComments : existingRow?.hr_comments;
+        const nextCeoComments = (ceoComments !== undefined) ? ceoComments : existingRow?.ceo_comments;
+
+        const derivedStatus = derivePerformanceAppraisalStatus({
+            kraScores: shouldUpdateSectionB ? kraScores : null,
+            performanceSections: shouldUpdateSectionB ? performanceSections : null,
+            sectionBTotal: nextSectionBTotal,
+            softSkillScores: shouldUpdateSectionC ? softSkillScores : null,
+            sectionCTotal: nextSectionCTotal,
+            appraiserComments: nextAppraiserComments,
+            hodComments: nextHodComments,
+            hrComments: nextHrComments,
+            ceoComments: nextCeoComments
+        });
 
         // Update main record
         const updateFields = [];
@@ -1439,25 +1840,12 @@ const updateAppraisal = async (req, res) => {
             updateValues.push(periodSemi !== null ? (parseInt(periodSemi) || null) : null);
         }
 
-        if (status) {
-            if (appraisalColumns.has('status')) {
-                updateFields.push(`status = $${paramCount++}`);
-                updateValues.push(status);
-            }
-            
-            // Set signature dates based on status
-            if (status === 'Submitted') {
-                if (appraisalColumns.has('appraisee_signature_date')) updateFields.push(`appraisee_signature_date = CURRENT_DATE`);
-            } else if (status === 'Supervisor_Review') {
-                if (appraisalColumns.has('appraiser_signature_date')) updateFields.push(`appraiser_signature_date = CURRENT_DATE`);
-            } else if (status === 'HOD_Review') {
-                if (appraisalColumns.has('hod_signature_date')) updateFields.push(`hod_signature_date = CURRENT_DATE`);
-            } else if (status === 'HR_Review') {
-                if (appraisalColumns.has('hr_signature_date')) updateFields.push(`hr_signature_date = CURRENT_DATE`);
-            } else if (status === 'CEO_Approved' || status === 'Finalized') {
-                if (appraisalColumns.has('ceo_signature_date')) updateFields.push(`ceo_signature_date = CURRENT_DATE`);
-            }
+        if (appraisalColumns.has('status')) {
+            updateFields.push(`status = $${paramCount++}`);
+            updateValues.push(derivedStatus);
         }
+
+        updateFields.push(...getSignatureDateUpdateFragments({ derivedStatus, columns: appraisalColumns }));
 
         if (appraiseeComments !== undefined) {
             if (appraisalColumns.has('appraisee_comments')) {
@@ -1530,8 +1918,9 @@ const updateAppraisal = async (req, res) => {
             }
         }
 
-        if (overallRating !== undefined) {
-            const overall = parseFloat(overallRating) || 0;
+        const shouldUpdateOverallScore = (sectionBTotalNum !== null) || (sectionCTotalNum !== null);
+        if (shouldUpdateOverallScore) {
+            const overall = (parseFloat(nextSectionBTotal) || 0) + (parseFloat(nextSectionCTotal) || 0);
             if (appraisalColumns.has('overall_score')) {
                 updateFields.push(`overall_score = $${paramCount++}`);
                 updateValues.push(overall);

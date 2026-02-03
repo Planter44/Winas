@@ -64,9 +64,9 @@ function App() {
               <Route path="/appraisals/:id/edit" element={<ProtectedRoute minLevel={5}><AppraisalForm /></ProtectedRoute>} />
               
               <Route path="/performance-appraisals" element={<ProtectedRoute><PerformanceAppraisals /></ProtectedRoute>} />
-              <Route path="/performance-appraisals/new" element={<ProtectedRoute roles={['Supervisor', 'HOD', 'HR', 'CEO', 'Super Admin']}><PerformanceAppraisalForm /></ProtectedRoute>} />
+              <Route path="/performance-appraisals/new" element={<ProtectedRoute roles={['HOD', 'HR', 'CEO', 'Super Admin']}><PerformanceAppraisalForm /></ProtectedRoute>} />
               <Route path="/performance-appraisals/:id" element={<ProtectedRoute><PerformanceAppraisalDetails /></ProtectedRoute>} />
-              <Route path="/performance-appraisals/:id/edit" element={<ProtectedRoute roles={['Supervisor', 'HOD', 'HR', 'CEO', 'Super Admin']}><PerformanceAppraisalForm /></ProtectedRoute>} />
+              <Route path="/performance-appraisals/:id/edit" element={<ProtectedRoute roles={['Staff', 'Supervisor', 'HOD', 'HR', 'CEO', 'Super Admin']}><PerformanceAppraisalForm /></ProtectedRoute>} />
               
               <Route path="/departments" element={<ProtectedRoute minLevel={4}><Departments /></ProtectedRoute>} />
               

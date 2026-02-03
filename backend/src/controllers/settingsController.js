@@ -1,7 +1,8 @@
 const db = require('../database/db');
 const { logAudit } = require('../middleware/audit');
 const path = require('path');
-const { isCloudinaryConfigured, uploadBuffer } = require('../utils/cloudinary');
+const fs = require('fs');
+const { cloudinary, isCloudinaryConfigured, uploadBuffer } = require('../utils/cloudinary');
 
 const getAllSettings = async (req, res) => {
     try {
@@ -70,6 +71,50 @@ const uploadCompanyLogo = async (req, res) => {
     } catch (error) {
         console.error('Upload company logo error:', error);
         res.status(500).json({ error: 'Failed to upload company logo' });
+    }
+};
+
+const deleteCompanyLogo = async (req, res) => {
+    try {
+        const existing = await db.query(
+            'SELECT id, setting_value FROM system_settings WHERE setting_key = $1',
+            ['company_logo_url']
+        );
+
+        const settingId = existing.rows[0]?.id;
+        const logoUrl = existing.rows[0]?.setting_value;
+
+        if (logoUrl) {
+            if (isCloudinaryConfigured()) {
+                try {
+                    const folder = process.env.CLOUDINARY_LOGO_FOLDER || process.env.CLOUDINARY_FOLDER || 'winas-hrms/company-logo';
+                    await cloudinary.uploader.destroy(`${folder}/company-logo`, { invalidate: true, resource_type: 'image' });
+                } catch (e) {
+                    console.error('Cloudinary logo delete error:', e);
+                }
+            } else if (String(logoUrl).startsWith('/uploads/logos/')) {
+                const fileName = path.basename(String(logoUrl));
+                const filePath = path.join(__dirname, '../../uploads/logos', fileName);
+                try {
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                    }
+                } catch (e) {
+                    console.error('Local logo delete error:', e);
+                }
+            }
+        }
+
+        if (settingId) {
+            await db.query('DELETE FROM system_settings WHERE id = $1', [settingId]);
+            await logAudit(req.user.id, 'DELETE_SETTING', 'SystemSettings', settingId,
+                { key: 'company_logo_url' }, req);
+        }
+
+        res.json({ message: 'Company logo reset successfully' });
+    } catch (error) {
+        console.error('Delete company logo error:', error);
+        res.status(500).json({ error: 'Failed to reset company logo' });
     }
 };
 
@@ -267,6 +312,7 @@ module.exports = {
     updateSetting,
     createSetting,
     uploadCompanyLogo,
+    deleteCompanyLogo,
     deleteSetting,
     bulkUpdateSettings
 };

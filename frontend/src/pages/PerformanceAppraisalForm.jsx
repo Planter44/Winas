@@ -306,6 +306,7 @@ const PerformanceAppraisalForm = () => {
   const [savingSection, setSavingSection] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [appraisalOwnerId, setAppraisalOwnerId] = useState(null);
 
   const initialSnapshotRef = useRef('');
   const initializedRef = useRef(false);
@@ -396,6 +397,23 @@ const PerformanceAppraisalForm = () => {
     hr: '',
     ceo: ''
   });
+
+  const isPrivileged = hasRole('CEO') || hasRole('HR') || hasRole('Super Admin');
+  const isHod = hasRole('HOD');
+  const effectiveOwnerId = isEdit ? (appraisalOwnerId ?? employeeData.userId) : employeeData.userId;
+  const isOwnAppraisal = effectiveOwnerId && user?.id && String(user.id) === String(effectiveOwnerId);
+
+  const canEditEmployeeDetails = !isEdit && (hasRole('HOD') || hasRole('HR') || hasRole('CEO') || hasRole('Super Admin'));
+  const canEditSectionB = isPrivileged || isHod || isOwnAppraisal;
+  const canEditSectionC = isPrivileged || isHod || (hasRole('Supervisor') && !isOwnAppraisal);
+  const canEditCourses = isPrivileged || isHod || isOwnAppraisal;
+  const canEditDevelopmentPlans = isPrivileged || isHod || isOwnAppraisal;
+
+  const canEditAppraiseeComments = isPrivileged || isOwnAppraisal;
+  const canEditAppraiserComments = isPrivileged || isHod || (hasRole('Supervisor') && !isOwnAppraisal);
+  const canEditHodComments = isPrivileged || hasRole('HOD');
+  const canEditHrComments = isPrivileged || hasRole('HR');
+  const canEditCeoComments = isPrivileged || hasRole('CEO');
 
   useEffect(() => {
     fetchInitialData();
@@ -523,11 +541,7 @@ const PerformanceAppraisalForm = () => {
         const appraisalRes = await performanceAppraisalAPI.getById(id);
         const appraisal = appraisalRes.data;
 
-        if (appraisal?.user_id === user?.id && !(hasRole('CEO') || hasRole('Super Admin'))) {
-          toast.error('You do not have permission to edit your own performance appraisal.');
-          navigate(`/performance-appraisals/${id}`);
-          return;
-        }
+        setAppraisalOwnerId(appraisal?.user_id || null);
         
         setEmployeeData({
           userId: appraisal.user_id,
@@ -1090,6 +1104,11 @@ const PerformanceAppraisalForm = () => {
   const importSectionBFromFile = async (file) => {
     if (!file) return;
 
+    if (!canEditSectionB) {
+      toast.error('You do not have permission to edit Section B');
+      return;
+    }
+
     const ok = window.confirm('Import will replace current Section B rows for any sections found in the file. Continue?');
     if (!ok) return;
 
@@ -1134,9 +1153,20 @@ const PerformanceAppraisalForm = () => {
     toast.success('Section B import completed');
   };
 
+  const sanitizePerformanceSectionsForSave = (sections) => {
+    return (sections || []).map((s) => {
+      const { zoom, ...section } = s || {};
+      const rows = (section.rows || []).map((r) => {
+        const { selected, ...row } = r || {};
+        return row;
+      });
+      return { ...section, rows };
+    });
+  };
+
   const buildSnapshot = () => ({
     employeeData,
-    performanceSections,
+    performanceSections: sanitizePerformanceSectionsForSave(performanceSections),
     softSkillScores,
     courses,
     developmentPlans,
@@ -1246,6 +1276,18 @@ const PerformanceAppraisalForm = () => {
       return;
     }
 
+    const canSave = (() => {
+      if (sectionName === 'sectionC') return canEditSectionC;
+      if (sectionName === 'courses') return canEditCourses;
+      if (sectionName === 'developmentPlans') return canEditDevelopmentPlans;
+      return canEditSectionB;
+    })();
+
+    if (!canSave) {
+      toast.error('You do not have permission to edit this section');
+      return;
+    }
+
     if (!isEdit) {
       toast.info('This section will be saved when you click Save Appraisal at the bottom.');
       return;
@@ -1296,7 +1338,7 @@ const PerformanceAppraisalForm = () => {
       } else if (sectionName === 'developmentPlans') {
         partial.developmentPlans = developmentPlans.filter(p => p.description);
       } else {
-        partial.performanceSections = performanceSections;
+        partial.performanceSections = sanitizePerformanceSectionsForSave(performanceSections);
         partial.kraScores = allKraScores;
         partial.sectionBTotal = sectionBTotal;
         partial.overallRating = overall;
@@ -1388,7 +1430,7 @@ const PerformanceAppraisalForm = () => {
         periodQuarter: employeeData.periodType === 'Quarterly' ? parseInt(employeeData.periodQuarter) : null,
         periodSemi: employeeData.periodType === 'Semi-annually' ? parseInt(employeeData.periodSemi) : null,
         appraisalDate: employeeData.appraisalDate,
-        performanceSections: performanceSections,
+        performanceSections: sanitizePerformanceSectionsForSave(performanceSections),
         kraScores: allKraScores,
         sectionBTotal: calculateSectionBTotal(),
         softSkillScores: softSkillScores.filter(skill => skill.rating),
@@ -1571,6 +1613,7 @@ const PerformanceAppraisalForm = () => {
                     value={employeeData.userId}
                     onChange={handleEmployeeChange}
                     className="input-field"
+                    disabled={!canEditEmployeeDetails}
                     required
                   >
                     <option value="">Select Employee</option>
@@ -1590,6 +1633,7 @@ const PerformanceAppraisalForm = () => {
                     value={employeeData.branchDepartment}
                     onChange={handleEmployeeChange}
                     className="input-field"
+                    disabled={!canEditEmployeeDetails}
                   />
                 </div>
                 
@@ -1601,6 +1645,7 @@ const PerformanceAppraisalForm = () => {
                     value={employeeData.position}
                     onChange={handleEmployeeChange}
                     className="input-field"
+                    disabled={!canEditEmployeeDetails}
                   />
                 </div>
                 
@@ -1612,6 +1657,7 @@ const PerformanceAppraisalForm = () => {
                     value={employeeData.pfNumber}
                     onChange={handleEmployeeChange}
                     className="input-field"
+                    disabled={!canEditEmployeeDetails}
                   />
                 </div>
                 
@@ -1622,6 +1668,7 @@ const PerformanceAppraisalForm = () => {
                     value={employeeData.periodType}
                     onChange={handleEmployeeChange}
                     className="input-field"
+                    disabled={!canEditEmployeeDetails}
                   >
                     <option value="Quarterly">Quarterly</option>
                     <option value="Semi-annually">Semi-annually</option>
@@ -1636,6 +1683,7 @@ const PerformanceAppraisalForm = () => {
                     value={employeeData.periodYear}
                     onChange={handleEmployeeChange}
                     className="input-field"
+                    disabled={!canEditEmployeeDetails}
                   >
                     {[...Array(5)].map((_, i) => {
                       const year = new Date().getFullYear() - i;
@@ -1652,6 +1700,7 @@ const PerformanceAppraisalForm = () => {
                       value={employeeData.periodQuarter}
                       onChange={handleEmployeeChange}
                       className="input-field"
+                      disabled={!canEditEmployeeDetails}
                     >
                       <option value="1">Q1 (Jan-Mar)</option>
                       <option value="2">Q2 (Apr-Jun)</option>
@@ -1669,6 +1718,7 @@ const PerformanceAppraisalForm = () => {
                       value={employeeData.periodSemi}
                       onChange={handleEmployeeChange}
                       className="input-field"
+                      disabled={!canEditEmployeeDetails}
                     >
                       <option value="1">1st Half (Jan-Jun)</option>
                       <option value="2">2nd Half (Jul-Dec)</option>
@@ -1684,6 +1734,7 @@ const PerformanceAppraisalForm = () => {
                     value={employeeData.appraisalDate}
                     onChange={handleEmployeeChange}
                     className="input-field"
+                    disabled={!canEditEmployeeDetails}
                   />
                 </div>
               </div>
@@ -1743,14 +1794,15 @@ const PerformanceAppraisalForm = () => {
                       onChange={(e) => {
                         const f = e.target.files?.[0];
                         if (sectionBImportRef.current) sectionBImportRef.current.value = '';
-                        if (f) importSectionBFromFile(f);
+                        if (f && canEditSectionB) importSectionBFromFile(f);
                       }}
                       className="hidden"
                     />
                     <button
                       type="button"
                       onClick={() => sectionBImportRef.current?.click?.()}
-                      className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors shadow-md"
+                      disabled={!canEditSectionB}
+                      className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors shadow-md disabled:opacity-50"
                     >
                       <Upload className="w-5 h-5 mr-2" /> Import from CSV/Excel
                     </button>
@@ -1788,6 +1840,7 @@ const PerformanceAppraisalForm = () => {
                           type="button"
                           onClick={() => addPerformanceRow(sectionIndex)}
                           className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                          disabled={!canEditSectionB}
                         >
                           <Plus className="w-4 h-4 mr-1" /> Add Row
                         </button>
@@ -1795,13 +1848,14 @@ const PerformanceAppraisalForm = () => {
                           type="button"
                           onClick={() => deleteSelectedRows(sectionIndex)}
                           className="inline-flex items-center px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+                          disabled={!canEditSectionB}
                         >
                           <Trash2 className="w-4 h-4 mr-1" /> Delete Selected
                         </button>
                         <button
                           type="button"
                           onClick={() => saveSection(section.name)}
-                          disabled={savingSection === section.name}
+                          disabled={!canEditSectionB || savingSection === section.name}
                           className="inline-flex items-center px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                         >
                           {savingSection === section.name ? (
@@ -1824,6 +1878,7 @@ const PerformanceAppraisalForm = () => {
                                   type="checkbox"
                                   onChange={(e) => toggleAllRows(sectionIndex, e.target.checked)}
                                   className="w-4 h-4 accent-pink-600"
+                                  disabled={!canEditSectionB}
                                 />
                               </th>
                               <th className="border border-gray-300 p-2 min-w-[150px] text-left font-bold">Pillar</th>
@@ -1853,6 +1908,7 @@ const PerformanceAppraisalForm = () => {
                                     checked={row.selected}
                                     onChange={() => toggleRowSelection(sectionIndex, rowIndex)}
                                     className="w-4 h-4 accent-pink-600"
+                                    disabled={!canEditSectionB}
                                   />
                                 </td>
                                 <td className="border border-gray-300 p-1 align-top">
@@ -1866,6 +1922,7 @@ const PerformanceAppraisalForm = () => {
                                     className="w-full min-w-[140px] p-1 border-0 resize-none focus:ring-2 focus:ring-pink-500 rounded font-semibold overflow-hidden"
                                     style={{ minHeight: '32px' }}
                                     placeholder="Pillar..."
+                                    disabled={!canEditSectionB}
                                   />
                                 </td>
                                 <td className="border border-gray-300 p-1 align-top">
@@ -1879,6 +1936,7 @@ const PerformanceAppraisalForm = () => {
                                     className="w-full min-w-[180px] p-1 border-0 resize-none focus:ring-2 focus:ring-pink-500 rounded font-semibold overflow-hidden"
                                     style={{ minHeight: '32px' }}
                                     placeholder="Key Result Area..."
+                                    disabled={!canEditSectionB}
                                   />
                                 </td>
                                 <td className="border border-gray-300 p-1 align-top">
@@ -1892,6 +1950,7 @@ const PerformanceAppraisalForm = () => {
                                     className="w-full min-w-[100px] p-1 border-0 resize-none focus:ring-2 focus:ring-pink-500 rounded overflow-hidden"
                                     style={{ minHeight: '32px' }}
                                     placeholder="Target description..."
+                                    disabled={!canEditSectionB}
                                   />
                                 </td>
                                 {/* Dynamic Monthly columns based on period type */}
@@ -1904,6 +1963,7 @@ const PerformanceAppraisalForm = () => {
                                         onChange={(e) => handlePerformanceRowChange(sectionIndex, rowIndex, `${m.key}Target`, e.target.value)}
                                         className="w-16 p-1 text-center border border-gray-200 rounded focus:ring-2 focus:ring-pink-500"
                                         placeholder="0"
+                                        disabled={!canEditSectionB}
                                       />
                                     </td>
                                     <td className="border border-gray-300 p-1 bg-yellow-50 align-top">
@@ -1913,6 +1973,7 @@ const PerformanceAppraisalForm = () => {
                                         onChange={(e) => handlePerformanceRowChange(sectionIndex, rowIndex, `${m.key}Actual`, e.target.value)}
                                         className="w-16 p-1 text-center border border-gray-200 rounded focus:ring-2 focus:ring-pink-500"
                                         placeholder="0"
+                                        disabled={!canEditSectionB}
                                       />
                                     </td>
                                     <td className="border border-gray-300 p-1 bg-green-50 text-center font-medium align-top">
@@ -2012,6 +2073,7 @@ const PerformanceAppraisalForm = () => {
                               value={skill.rating}
                               onChange={(e) => handleSoftSkillChange(index, 'rating', e.target.value)}
                               className="w-16 text-center border rounded px-2 py-1"
+                              disabled={!canEditSectionC}
                             />
                           </td>
                           <td className="px-4 py-2 text-center bg-green-50 font-medium">
@@ -2028,6 +2090,7 @@ const PerformanceAppraisalForm = () => {
                               className="w-full border rounded px-2 py-1 resize-none overflow-hidden"
                               style={{ minHeight: '32px' }}
                               placeholder="Comments..."
+                              disabled={!canEditSectionC}
                             />
                           </td>
                         </tr>
@@ -2047,6 +2110,7 @@ const PerformanceAppraisalForm = () => {
                     type="button"
                     onClick={() => saveSection('sectionC')}
                     className="px-6 py-2 bg-secondary-600 text-white rounded-lg hover:bg-secondary-700 transition-colors flex items-center gap-2"
+                    disabled={!canEditSectionC}
                   >
                     <Save className="w-4 h-4" />
                     Save Section C Changes
@@ -2103,6 +2167,7 @@ const PerformanceAppraisalForm = () => {
                         onChange={(e) => handleCourseChange(index, 'name', e.target.value)}
                         className="input-field"
                         placeholder="Course/Training Name"
+                        disabled={!canEditCourses}
                       />
                     </div>
                     <div className="flex-1">
@@ -2112,12 +2177,14 @@ const PerformanceAppraisalForm = () => {
                         onChange={(e) => handleCourseChange(index, 'comments', e.target.value)}
                         className="input-field"
                         placeholder="Comments"
+                        disabled={!canEditCourses}
                       />
                     </div>
                     <button
                       type="button"
                       onClick={() => removeCourse(index)}
                       className="text-red-500 hover:text-red-700 p-2"
+                      disabled={!canEditCourses}
                     >
                       ×
                     </button>
@@ -2128,6 +2195,7 @@ const PerformanceAppraisalForm = () => {
                     type="button"
                     onClick={addCourse}
                     className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+                    disabled={!canEditCourses}
                   >
                     + Add Course
                   </button>
@@ -2135,6 +2203,7 @@ const PerformanceAppraisalForm = () => {
                     type="button"
                     onClick={() => saveSection('courses')}
                     className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
+                    disabled={!canEditCourses}
                   >
                     <Save className="w-4 h-4" />
                     Save Courses
@@ -2169,6 +2238,7 @@ const PerformanceAppraisalForm = () => {
                         onChange={(e) => handleDevelopmentPlanChange(index, 'description', e.target.value)}
                         className="input-field"
                         placeholder="Skills/competencies to develop"
+                        disabled={!canEditDevelopmentPlans}
                       />
                     </div>
                     <div className="flex-1">
@@ -2179,6 +2249,7 @@ const PerformanceAppraisalForm = () => {
                         onChange={(e) => handleDevelopmentPlanChange(index, 'managerActions', e.target.value)}
                         className="input-field"
                         placeholder="What manager will do to support"
+                        disabled={!canEditDevelopmentPlans}
                       />
                     </div>
                     <div className="w-40">
@@ -2188,12 +2259,14 @@ const PerformanceAppraisalForm = () => {
                         value={plan.targetDate}
                         onChange={(e) => handleDevelopmentPlanChange(index, 'targetDate', e.target.value)}
                         className="input-field"
+                        disabled={!canEditDevelopmentPlans}
                       />
                     </div>
                     <button
                       type="button"
                       onClick={() => removeDevelopmentPlan(index)}
                       className="text-red-500 hover:text-red-700 p-2 mt-5"
+                      disabled={!canEditDevelopmentPlans}
                     >
                       ×
                     </button>
@@ -2204,6 +2277,7 @@ const PerformanceAppraisalForm = () => {
                     type="button"
                     onClick={addDevelopmentPlan}
                     className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+                    disabled={!canEditDevelopmentPlans}
                   >
                     + Add Development Plan
                   </button>
@@ -2211,6 +2285,7 @@ const PerformanceAppraisalForm = () => {
                     type="button"
                     onClick={() => saveSection('developmentPlans')}
                     className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
+                    disabled={!canEditDevelopmentPlans}
                   >
                     <Save className="w-4 h-4" />
                     Save Development Plans
@@ -2247,6 +2322,7 @@ const PerformanceAppraisalForm = () => {
                     className="input-field"
                     rows="3"
                     placeholder="Employee's comments on their performance..."
+                    disabled={!canEditAppraiseeComments}
                   />
                 </div>
                 
@@ -2262,6 +2338,7 @@ const PerformanceAppraisalForm = () => {
                     className="input-field"
                     rows="3"
                     placeholder="Supervisor's comments..."
+                    disabled={!canEditAppraiserComments}
                   />
                 </div>
                 
@@ -2277,6 +2354,7 @@ const PerformanceAppraisalForm = () => {
                     className="input-field"
                     rows="3"
                     placeholder="Head of Department's comments..."
+                    disabled={!canEditHodComments}
                   />
                 </div>
                 
@@ -2292,6 +2370,7 @@ const PerformanceAppraisalForm = () => {
                     className="input-field"
                     rows="3"
                     placeholder="HR's comments..."
+                    disabled={!canEditHrComments}
                   />
                 </div>
                 
@@ -2307,6 +2386,7 @@ const PerformanceAppraisalForm = () => {
                     className="input-field"
                     rows="3"
                     placeholder="CEO's comments..."
+                    disabled={!canEditCeoComments}
                   />
                 </div>
               </div>
