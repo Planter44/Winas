@@ -114,7 +114,7 @@ const MyTeam = () => {
 
   return (
     <Layout>
-      <div className="mb-8">
+      <div className="mb-6 sm:mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">My Team</h1>
         <p className="text-gray-600">Manage and communicate with your team members</p>
       </div>
@@ -122,11 +122,11 @@ const MyTeam = () => {
       {/* HOD View - Supervisors and Staff in Department */}
       {user?.role === 'HOD' && (
         <div className="card">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900">My Department Team</h2>
             <button
               onClick={() => handleSendMessage(null, true)}
-              className="btn-primary flex items-center"
+              className="btn-primary flex items-center w-full sm:w-auto justify-center"
             >
               <Mail className="mr-2" size={18} />
               Broadcast to Team
@@ -137,18 +137,18 @@ const MyTeam = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 z-10 bg-gray-50 border-l border-gray-200">Actions</th>
+                  <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                  <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                  <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th>
+                  <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                  <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {teamData.teamMembers.map((member) => (
                   <tr key={member.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="h-10 w-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-semibold mr-3">
                           {member.first_name?.[0]}{member.last_name?.[0]}
@@ -161,26 +161,26 @@ const MyTeam = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap">
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                         {member.role_name}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{member.job_title}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-sm text-gray-900">{member.job_title}</td>
+                    <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex items-center">
                         <Phone size={14} className="mr-1" />
                         {member.phone}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         member.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                       }`}>
                         {member.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium sticky right-0 z-10 bg-white border-l border-gray-200">
+                    <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-sm font-medium">
                       <button
                         onClick={() => handleSendMessage(member, false)}
                         className="text-primary-600 hover:text-primary-900 flex items-center"
@@ -200,11 +200,11 @@ const MyTeam = () => {
       {/* Supervisor View - Staff Under Supervision */}
       {user?.role === 'Supervisor' && teamData?.teamMembers && (
         <div className="card">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900">My Staff</h2>
             <button
               onClick={() => handleSendMessage(null, true)}
-              className="btn-primary flex items-center"
+              className="btn-primary flex items-center w-full sm:w-auto justify-center"
             >
               <Mail className="mr-2" size={18} />
               Broadcast to Staff
@@ -215,17 +215,17 @@ const MyTeam = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 z-10 bg-gray-50 border-l border-gray-200">Actions</th>
+                  <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                  <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th>
+                  <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                  <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {teamData.teamMembers.map((member) => (
                   <tr key={member.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="h-10 w-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-semibold mr-3">
                           {member.first_name?.[0]}{member.last_name?.[0]}
@@ -238,21 +238,21 @@ const MyTeam = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{member.job_title}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-sm text-gray-900">{member.job_title}</td>
+                    <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex items-center">
                         <Phone size={14} className="mr-1" />
                         {member.phone}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         member.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                       }`}>
                         {member.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium sticky right-0 z-10 bg-white border-l border-gray-200">
+                    <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-sm font-medium">
                       <button
                         onClick={() => handleSendMessage(member, false)}
                         className="text-primary-600 hover:text-primary-900 flex items-center"
@@ -299,18 +299,18 @@ const MyTeam = () => {
 
           {selectedDepartment && (
             <div className="card">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Department Members</h2>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => { setSelectedDepartment(null); setDepartmentMembers([]); }}
-                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 w-full sm:w-auto"
                   >
                     Back
                   </button>
                   <button
                     onClick={() => handleSendMessage(null, true)}
-                    className="px-3 py-1.5 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 flex items-center"
+                    className="px-3 py-1.5 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 flex items-center justify-center w-full sm:w-auto"
                   >
                     <Mail className="mr-1" size={14} />
                     Broadcast
@@ -322,18 +322,18 @@ const MyTeam = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supervisor</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 z-10 bg-gray-50 border-l border-gray-200">Actions</th>
+                      <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                      <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                      <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th>
+                      <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                      <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supervisor</th>
+                      <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {departmentMembers.map((member) => (
+                    {departmentMembers.length > 0 ? departmentMembers.map((member) => (
                       <tr key={member.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="h-10 w-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-semibold mr-3">
                               {member.first_name?.[0]}{member.last_name?.[0]}
@@ -346,7 +346,7 @@ const MyTeam = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             member.role_name === 'HOD' ? 'bg-purple-100 text-purple-800' :
                             member.role_name === 'Supervisor' ? 'bg-blue-100 text-blue-800' :
@@ -355,21 +355,21 @@ const MyTeam = () => {
                             {member.role_name}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{member.job_title}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-sm text-gray-900">{member.job_title}</td>
+                        <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-sm text-gray-500">
                           <div className="flex items-center">
                             <Phone size={14} className="mr-1" />
                             {member.phone}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-sm text-gray-500">
                           {member.supervisor_first_name ? (
                             `${member.supervisor_first_name} ${member.supervisor_last_name}`
                           ) : (
                             <span className="text-gray-400">N/A</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium sticky right-0 z-10 bg-white border-l border-gray-200">
+                        <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-sm font-medium">
                           <button
                             onClick={() => handleSendMessage(member, false)}
                             className="text-primary-600 hover:text-primary-900 flex items-center"
@@ -379,7 +379,13 @@ const MyTeam = () => {
                           </button>
                         </td>
                       </tr>
-                    ))}
+                    )) : (
+                      <tr>
+                        <td colSpan="6" className="px-4 sm:px-5 lg:px-6 xl:px-7 py-8 text-center text-gray-500">
+                          No members found in this department
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -454,18 +460,18 @@ const MyTeam = () => {
 
           {selectedDepartment && (
             <div className="card">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Department Members</h2>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => { setSelectedDepartment(null); setDepartmentMembers([]); }}
-                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 w-full sm:w-auto"
                   >
                     Back
                   </button>
                   <button
                     onClick={() => handleSendMessage(null, true)}
-                    className="px-3 py-1.5 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 flex items-center"
+                    className="px-3 py-1.5 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 flex items-center justify-center w-full sm:w-auto"
                   >
                     <Mail className="mr-1" size={14} />
                     Broadcast
@@ -477,18 +483,18 @@ const MyTeam = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supervisor</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 z-10 bg-gray-50 border-l border-gray-200">Actions</th>
+                      <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                      <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                      <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th>
+                      <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                      <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supervisor</th>
+                      <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {departmentMembers.length > 0 ? departmentMembers.map((member) => (
                       <tr key={member.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="h-10 w-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-semibold mr-3">
                               {member.first_name?.[0]}{member.last_name?.[0]}
@@ -501,7 +507,7 @@ const MyTeam = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             member.role_name === 'HOD' ? 'bg-purple-100 text-purple-800' :
                             member.role_name === 'Supervisor' ? 'bg-blue-100 text-blue-800' :
@@ -510,21 +516,21 @@ const MyTeam = () => {
                             {member.role_name}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{member.job_title}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-sm text-gray-900">{member.job_title}</td>
+                        <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-sm text-gray-500">
                           <div className="flex items-center">
                             <Phone size={14} className="mr-1" />
                             {member.phone}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-sm text-gray-500">
                           {member.supervisor_first_name ? (
                             `${member.supervisor_first_name} ${member.supervisor_last_name}`
                           ) : (
                             <span className="text-gray-400">N/A</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium sticky right-0 z-10 bg-white border-l border-gray-200">
+                        <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-sm font-medium">
                           <button
                             onClick={() => handleSendMessage(member, false)}
                             className="text-primary-600 hover:text-primary-900 flex items-center"
@@ -536,7 +542,7 @@ const MyTeam = () => {
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                        <td colSpan="6" className="px-4 sm:px-5 lg:px-6 xl:px-7 py-8 text-center text-gray-500">
                           No members found in this department
                         </td>
                       </tr>

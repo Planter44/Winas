@@ -183,16 +183,21 @@ const ensureStaffProfileForUser = async (client, userId) => {
 
         try {
             const columnRes = await client.query(
-                `SELECT column_name, is_nullable
+                `SELECT column_name, is_nullable, column_default, data_type
                  FROM information_schema.columns
                  WHERE table_schema = 'public'
                    AND table_name = 'staff_profiles'`
             );
-            const columnMap = new Map(columnRes.rows.map(row => [row.column_name, row.is_nullable]));
-            hasEmployeeNumber = columnMap.has('employee_number');
-            requiresEmployeeNumber = columnMap.get('employee_number') === 'NO';
-            hasJobTitle = columnMap.has('job_title');
-            requiresJobTitle = columnMap.get('job_title') === 'NO';
+            const columnMap = new Map(columnRes.rows.map(row => [row.column_name, row]));
+            const employeeMeta = columnMap.get('employee_number');
+            hasEmployeeNumber = Boolean(employeeMeta);
+            requiresEmployeeNumber = employeeMeta?.is_nullable === 'NO' && !employeeMeta?.column_default;
+            const jobTitleMeta = columnMap.get('job_title');
+            hasJobTitle = Boolean(jobTitleMeta);
+            requiresJobTitle = jobTitleMeta?.is_nullable === 'NO' && !jobTitleMeta?.column_default;
+            var requiredColumns = columnRes.rows.filter(
+                row => row.is_nullable === 'NO' && !row.column_default
+            );
         } catch (e) {
             // ignore column metadata failures
         }
@@ -212,6 +217,49 @@ const ensureStaffProfileForUser = async (client, userId) => {
             columns.push('job_title');
             const jobTitleValue = requiresJobTitle ? 'Staff' : null;
             values.push(jobTitleValue);
+        }
+
+        if (requiredColumns && requiredColumns.length > 0) {
+            const reservedColumns = new Set([
+                'id',
+                'user_id',
+                'first_name',
+                'last_name',
+                'created_at',
+                'updated_at'
+            ]);
+            const fallbackToken = Date.now();
+            const resolveFallbackValue = (column) => {
+                const columnName = column?.column_name || 'value';
+                const type = String(column?.data_type || '').toLowerCase();
+                if (
+                    type.includes('int') ||
+                    type === 'numeric' ||
+                    type === 'decimal' ||
+                    type === 'double precision' ||
+                    type === 'real'
+                ) {
+                    return 0;
+                }
+                if (type === 'boolean') {
+                    return false;
+                }
+                if (type === 'date') {
+                    return new Date().toISOString().slice(0, 10);
+                }
+                if (type.includes('timestamp')) {
+                    return new Date();
+                }
+                const raw = `AUTO-${columnName}-${userId}-${fallbackToken}`;
+                return raw.length > 50 ? raw.slice(0, 50) : raw;
+            };
+
+            requiredColumns.forEach((column) => {
+                if (reservedColumns.has(column.column_name)) return;
+                if (columns.includes(column.column_name)) return;
+                columns.push(column.column_name);
+                values.push(resolveFallbackValue(column));
+            });
         }
 
         const placeholders = values.map((_, idx) => `$${idx + 1}`).join(', ');
@@ -351,7 +399,10 @@ const resolveStaffIdForAppraisal = async (client, userId) => {
     }
 
     if (foreignTable === 'staff') {
-        return await resolveStaffIdFromStaffTable();
+        const staffId = await resolveStaffIdFromStaffTable();
+        if (staffId) return staffId;
+        const fallbackStaffId = await resolveStaffProfileId();
+        return fallbackStaffId || userId;
     }
 
     const staffId = await resolveStaffProfileId();

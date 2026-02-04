@@ -148,19 +148,19 @@ const Users = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Employee
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Role
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Department
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 z-10 bg-gray-50 border-l border-gray-200">
+                <th className="px-4 sm:px-5 lg:px-6 xl:px-7 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -168,7 +168,7 @@ const Users = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredUsers.map((u) => (
                 <tr key={u.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-semibold">
                         {u.first_name?.[0]}{u.last_name?.[0]}
@@ -182,13 +182,13 @@ const Users = () => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap">
                     <span className="badge badge-info">{u.role_name}</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-sm text-gray-500">
                     {u.department_name || 'N/A'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap">
                     <span
                       className={`badge ${
                         u.is_active ? 'badge-success' : 'badge-danger'
@@ -197,7 +197,7 @@ const Users = () => {
                       {u.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium sticky right-0 z-10 bg-white border-l border-gray-200">
+                  <td className="px-4 sm:px-5 lg:px-6 xl:px-7 py-4 whitespace-nowrap text-right text-sm font-medium">
                     {(hasMinLevel(2) || user?.role === 'HR') && (
                       <div className="flex items-center justify-end space-x-2">
                         {/* HR cannot edit CEO - only CEO and SuperAdmin can edit CEO */}
