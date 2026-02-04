@@ -19,6 +19,7 @@ const PerformanceAppraisals = () => {
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [filterStatus, setFilterStatus] = useState('');
   const [quickFilter, setQuickFilter] = useState('');
+  const [scopeFilter, setScopeFilter] = useState('');
 
   const isPendingReviewStatus = (status) => {
     return ['Draft', 'Submitted', 'Supervisor_Review', 'HOD_Review', 'HR_Review', 'CEO_Approved'].includes(status);
@@ -31,15 +32,19 @@ const PerformanceAppraisals = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const group = params.get('group');
+    const scope = params.get('scope');
     if (group === 'pending_review' || group === 'finalized') {
       setFilterStatus('');
       setQuickFilter(group);
+    } else {
+      setQuickFilter('');
     }
+    setScopeFilter(scope === 'mine' ? 'mine' : '');
   }, [location.search]);
 
   useEffect(() => {
     fetchAppraisals();
-  }, [filterYear, filterStatus]);
+  }, [filterYear, filterStatus, scopeFilter, user?.id]);
 
   const fetchAppraisals = async () => {
     try {
@@ -47,6 +52,7 @@ const PerformanceAppraisals = () => {
       const params = {};
       if (filterYear) params.periodYear = filterYear;
       if (filterStatus) params.status = filterStatus;
+      if (scopeFilter === 'mine' && user?.id) params.userId = user.id;
       
       const response = await performanceAppraisalAPI.getAll(params);
       setAppraisals(response.data);
@@ -166,7 +172,7 @@ const PerformanceAppraisals = () => {
                 type="button"
                 onClick={() => {
                   setQuickFilter('');
-                  navigate('/performance-appraisals');
+                  navigate(scopeFilter === 'mine' ? '/performance-appraisals?scope=mine' : '/performance-appraisals');
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg"
                 title="Back"

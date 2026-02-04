@@ -131,7 +131,7 @@ const Departments = () => {
                   >
                     <Edit size={18} />
                   </button>
-                  {hasMinLevel(1) && (
+                  {hasMinLevel(2) && (
                     <button
                       onClick={() => handleDelete(dept.id)}
                       className="text-red-600 hover:text-red-900"

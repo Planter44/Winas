@@ -9,6 +9,6 @@ router.get('/roles', authenticateToken, departmentController.getRoles);
 router.get('/:id', authenticateToken, departmentController.getDepartmentById);
 router.post('/', authenticateToken, authorizeMinLevel(2), auditMiddleware('CREATE_DEPARTMENT', 'Department'), departmentController.createDepartment);
 router.put('/:id', authenticateToken, authorizeMinLevel(2), auditMiddleware('UPDATE_DEPARTMENT', 'Department'), departmentController.updateDepartment);
-router.delete('/:id', authenticateToken, authorizeMinLevel(1), departmentController.deleteDepartment);
+router.delete('/:id', authenticateToken, authorizeMinLevel(2), departmentController.deleteDepartment);
 
 module.exports = router;

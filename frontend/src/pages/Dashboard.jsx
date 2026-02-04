@@ -104,17 +104,20 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="card">
+      <Link
+        to="/performance-appraisals?scope=mine"
+        className="card hover:bg-primary-50 transition-colors"
+      >
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">My Appraisals</p>
             <p className="text-2xl font-bold text-gray-900">
-              {stats?.myAppraisalsCount || 0}
+              {stats?.myPerformanceAppraisalsCount ?? stats?.myAppraisalsCount ?? 0}
             </p>
           </div>
           <Award className="text-primary-500" size={32} />
         </div>
-      </div>
+      </Link>
     </div>
   );
 
@@ -240,7 +243,7 @@ const Dashboard = () => {
             <div>
               <p className="text-sm text-gray-600 mb-1">Finalized Appraisals</p>
               <p className="text-2xl font-bold text-gray-900">
-                {stats?.appraisalStats?.finalized || 0}
+                {stats?.performanceAppraisalStats?.finalized || 0}
               </p>
             </div>
             <Award className="text-primary-500" size={32} />
@@ -427,7 +430,7 @@ const Dashboard = () => {
                 </a>
 
                 <a
-                  href="/performance-appraisals"
+                  href="/performance-appraisals?scope=mine"
                   className="flex items-center p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors"
                 >
                   <Award className="mr-2 sm:mr-3 text-primary-600 flex-shrink-0" size={22} />

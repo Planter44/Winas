@@ -37,6 +37,17 @@ const Users = () => {
     }
   };
 
+  const canDeleteUser = (targetUser) => {
+    if (!user) return false;
+    const isSuperAdmin = user.role === 'Super Admin';
+    const isCeo = user.role === 'CEO';
+
+    if (!isSuperAdmin && !isCeo) return false;
+    if (targetUser.role_name === 'Super Admin') return false;
+    if (targetUser.role_name === 'CEO' && !isSuperAdmin) return false;
+    return true;
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
 
@@ -197,7 +208,7 @@ const Users = () => {
                             <Edit size={18} />
                           </Link>
                         )}
-                        {hasMinLevel(1) && u.id !== 1 && u.role_name !== 'CEO' && (
+                        {canDeleteUser(u) && (
                           <button
                             onClick={() => handleDelete(u.id)}
                             className="text-red-600 hover:text-red-900"

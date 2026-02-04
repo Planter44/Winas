@@ -7,6 +7,7 @@ import { User, Mail, Phone, MapPin, Calendar, Briefcase, Lock, Save } from 'luci
 const Profile = () => {
   const { user, updateUser } = useAuth();
   const [profile, setProfile] = useState(null);
+  const [initialProfile, setInitialProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -24,12 +25,20 @@ const Profile = () => {
   const fetchProfile = async () => {
     try {
       const response = await authAPI.getProfile();
-      setProfile(response.data);
+      setProfile({ ...response.data });
+      setInitialProfile({ ...response.data });
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to load profile' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancelChanges = () => {
+    if (initialProfile) {
+      setProfile({ ...initialProfile });
+    }
+    setMessage({ type: '', text: '' });
   };
 
   const handleUpdateProfile = async (e) => {
@@ -39,10 +48,10 @@ const Profile = () => {
 
     try {
       const payload = {
+        email: profile.email || null,
         firstName: profile.first_name || null,
         lastName: profile.last_name || null,
         middleName: profile.middle_name || null,
-        employeeNumber: profile.employee_number || null,
         nationalId: profile.national_id || null,
         secondaryPhone: profile.secondary_phone || null,
         kraPin: profile.kra_pin || null,
@@ -50,8 +59,6 @@ const Profile = () => {
         dateOfBirth: profile.date_of_birth || null,
         gender: profile.gender || null,
         maritalStatus: profile.marital_status || null,
-        dateJoined: profile.date_joined || null,
-        jobTitle: profile.job_title || null,
         phone: profile.phone || null,
         address: profile.address || null,
         city: profile.city || null,
@@ -67,9 +74,11 @@ const Profile = () => {
 
       if (res.data?.profile) {
         setProfile(res.data.profile);
+        setInitialProfile(res.data.profile);
 
         updateUser({
           ...user,
+          email: res.data.profile.email,
           firstName: res.data.profile.first_name,
           lastName: res.data.profile.last_name,
           employeeNumber: res.data.profile.employee_number,
@@ -190,7 +199,12 @@ const Profile = () => {
                     <Mail className="mr-2" size={16} />
                     Email
                   </label>
-                  <p className="text-gray-900 break-all">{profile?.email}</p>
+                  <input
+                    type="email"
+                    value={profile?.email || ''}
+                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                    className="input-field"
+                  />
                 </div>
 
                 <div>
@@ -260,8 +274,9 @@ const Profile = () => {
                       <input
                         type="text"
                         value={profile?.employee_number || ''}
-                        onChange={(e) => setProfile({ ...profile, employee_number: e.target.value })}
-                        className="input-field"
+                        readOnly
+                        disabled
+                        className="input-field bg-gray-100 text-gray-500 cursor-not-allowed"
                       />
                     </div>
 
@@ -354,8 +369,9 @@ const Profile = () => {
                       <input
                         type="date"
                         value={profile?.date_joined ? String(profile.date_joined).slice(0, 10) : ''}
-                        onChange={(e) => setProfile({ ...profile, date_joined: e.target.value })}
-                        className="input-field"
+                        readOnly
+                        disabled
+                        className="input-field bg-gray-100 text-gray-500 cursor-not-allowed"
                       />
                     </div>
 
@@ -366,8 +382,9 @@ const Profile = () => {
                       <input
                         type="text"
                         value={profile?.job_title || ''}
-                        onChange={(e) => setProfile({ ...profile, job_title: e.target.value })}
-                        className="input-field"
+                        readOnly
+                        disabled
+                        className="input-field bg-gray-100 text-gray-500 cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -525,14 +542,24 @@ const Profile = () => {
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="mt-6 btn-primary flex items-center disabled:opacity-50"
-                >
-                  <Save className="mr-2" size={16} />
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </button>
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCancelChanges}
+                    disabled={saving}
+                    className="btn-secondary flex items-center disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="btn-primary flex items-center disabled:opacity-50"
+                  >
+                    <Save className="mr-2" size={16} />
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
               </form>
             </div>
           </div>

@@ -168,12 +168,83 @@ const resolveStaffIdForAppraisal = async (client, userId) => {
         }
     };
 
+    const resolveStaffIdFromStaffTable = async () => {
+        try {
+            const columnsRes = await client.query(
+                `SELECT column_name
+                 FROM information_schema.columns
+                 WHERE table_schema = 'public'
+                   AND table_name = 'staff'`
+            );
+            const columns = new Set(columnsRes.rows.map(r => r.column_name));
+            if (columns.size === 0) return null;
+
+            const userRes = await client.query(
+                `SELECT email FROM users WHERE id = $1`,
+                [userId]
+            );
+            const userEmail = userRes.rows[0]?.email || null;
+            const normalizedEmail = userEmail ? String(userEmail).toLowerCase() : null;
+
+            let staffProfileId = null;
+            let employeeNumber = null;
+            const profileRes = await client.query(
+                `SELECT id, employee_number FROM staff_profiles WHERE user_id = $1`,
+                [userId]
+            );
+            staffProfileId = profileRes.rows[0]?.id || null;
+            employeeNumber = profileRes.rows[0]?.employee_number || null;
+
+            const tryLookup = async (column, value) => {
+                if (!value) return null;
+                const res = await client.query(
+                    `SELECT id FROM staff WHERE ${column} = $1 LIMIT 1`,
+                    [value]
+                );
+                return res.rows[0]?.id || null;
+            };
+
+            if (columns.has('user_id')) {
+                const id = await tryLookup('user_id', userId);
+                if (id) return id;
+            }
+            if (columns.has('staff_profile_id')) {
+                const id = await tryLookup('staff_profile_id', staffProfileId);
+                if (id) return id;
+            }
+
+            const employeeColumns = ['employee_number', 'employee_no', 'staff_no', 'staff_number', 'pf_number', 'pf_no'];
+            for (const col of employeeColumns) {
+                if (columns.has(col)) {
+                    const id = await tryLookup(col, employeeNumber);
+                    if (id) return id;
+                }
+            }
+
+            const emailColumns = ['email', 'work_email', 'official_email'];
+            for (const col of emailColumns) {
+                if (columns.has(col)) {
+                    const id = await tryLookup(col, normalizedEmail);
+                    if (id) return id;
+                }
+            }
+        } catch (error) {
+            return null;
+        }
+
+        return null;
+    };
+
     if (foreignTable === 'users') {
         return userId;
     }
 
     if (foreignTable === 'staff_profiles') {
         return await resolveStaffProfileId();
+    }
+
+    if (foreignTable === 'staff') {
+        return await resolveStaffIdFromStaffTable();
     }
 
     const staffId = await resolveStaffProfileId();
@@ -1730,12 +1801,31 @@ const updateAppraisal = async (req, res) => {
         );
         const appraisalColumns = new Set(columnsResult.rows.map(r => r.column_name));
 
+        const selectColumns = [
+            'id',
+            'user_id',
+            'status',
+            'section_b_total',
+            'section_c_total',
+            'appraiser_comments',
+            'hod_comments',
+            'hr_comments',
+            'ceo_comments'
+        ];
+
+        if (appraisalColumns.has('staff_id')) {
+            selectColumns.push('staff_id');
+        }
+        if (appraisalColumns.has('appraisal_period_id')) {
+            selectColumns.push('appraisal_period_id');
+        }
+
         const existing = await client.query(
             appraisalColumns.has('deleted_at')
-                ? `SELECT id, user_id, status, section_b_total, section_c_total, appraiser_comments, hod_comments, hr_comments, ceo_comments
+                ? `SELECT ${selectColumns.join(', ')}
                    FROM performance_appraisals
                    WHERE id = $1 AND deleted_at IS NULL`
-                : `SELECT id, user_id, status, section_b_total, section_c_total, appraiser_comments, hod_comments, hr_comments, ceo_comments
+                : `SELECT ${selectColumns.join(', ')}
                    FROM performance_appraisals
                    WHERE id = $1`,
             [id]
@@ -1872,6 +1962,7 @@ const updateAppraisal = async (req, res) => {
         let paramCount = 1;
 
         const targetUserId = userId || existing.rows[0]?.user_id;
+        const existingStaffId = existingRow?.staff_id || null;
         if (targetUserId) {
             const resolvedSupervisorId = await resolveSupervisorStaffId(client, targetUserId, null);
             if (resolvedSupervisorId && appraisalColumns.has('supervisor_id')) {
@@ -1880,16 +1971,22 @@ const updateAppraisal = async (req, res) => {
             }
         }
 
-        if (targetUserId && appraisalColumns.has('staff_id')) {
-            const resolvedStaffId = await resolveStaffIdForAppraisal(client, targetUserId);
-            if (!resolvedStaffId) {
-                await client.query('ROLLBACK');
-                return res.status(400).json({
-                    error: 'Staff profile is required for this appraisal. Please create the staff profile first.'
-                });
+        if (appraisalColumns.has('staff_id')) {
+            const userIdChanged = userId !== undefined && userId !== null
+                && String(userId) !== String(existingRow?.user_id);
+            const shouldResolveStaff = userIdChanged || (!existingStaffId && targetUserId);
+
+            if (shouldResolveStaff) {
+                const resolvedStaffId = await resolveStaffIdForAppraisal(client, userIdChanged ? userId : targetUserId);
+                if (!resolvedStaffId) {
+                    await client.query('ROLLBACK');
+                    return res.status(400).json({
+                        error: 'Staff profile is required for this appraisal. Please create the staff profile first.'
+                    });
+                }
+                updateFields.push(`staff_id = $${paramCount++}`);
+                updateValues.push(resolvedStaffId);
             }
-            updateFields.push(`staff_id = $${paramCount++}`);
-            updateValues.push(resolvedStaffId);
         }
 
         if (branchDepartment !== undefined && appraisalColumns.has('branch_department')) {

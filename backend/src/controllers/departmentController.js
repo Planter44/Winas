@@ -155,6 +155,14 @@ const deleteDepartment = async (req, res) => {
     try {
         const { id } = req.params;
 
+        const requestingRole = req.user?.role_name;
+        const isSuperAdmin = requestingRole === 'Super Admin';
+        const isCeo = requestingRole === 'CEO';
+
+        if (!isSuperAdmin && !isCeo) {
+            return res.status(403).json({ error: 'Access denied. Insufficient permissions.' });
+        }
+
         const staffCount = await db.query(
             'SELECT COUNT(*) as count FROM users WHERE department_id = $1 AND deleted_at IS NULL',
             [id]

@@ -342,8 +342,34 @@ const deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
 
-        if (parseInt(id) === 1) {
+        const requestingRole = req.user?.role_name;
+        const isSuperAdmin = requestingRole === 'Super Admin';
+        const isCeo = requestingRole === 'CEO';
+
+        if (!isSuperAdmin && !isCeo) {
+            return res.status(403).json({ error: 'Access denied. Insufficient permissions.' });
+        }
+
+        const targetUserRes = await db.query(
+            `SELECT u.id, r.name as role_name
+             FROM users u
+             JOIN roles r ON u.role_id = r.id
+             WHERE u.id = $1 AND u.deleted_at IS NULL`,
+            [id]
+        );
+
+        if (targetUserRes.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const targetUser = targetUserRes.rows[0];
+
+        if (targetUser.role_name === 'Super Admin') {
             return res.status(403).json({ error: 'Cannot delete Super Admin account' });
+        }
+
+        if (targetUser.role_name === 'CEO' && !isSuperAdmin) {
+            return res.status(403).json({ error: 'Only Super Admin can delete CEO accounts' });
         }
 
         await db.query(

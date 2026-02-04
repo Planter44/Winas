@@ -158,6 +158,7 @@ const updateProfile = async (req, res) => {
     try {
         const userId = req.user.id;
         const {
+            email,
             firstName,
             lastName,
             middleName,
@@ -184,6 +185,31 @@ const updateProfile = async (req, res) => {
 
         await client.query('BEGIN');
 
+        const normalizedEmail = email !== undefined && email !== null
+            ? String(email).trim().toLowerCase()
+            : undefined;
+
+        if (normalizedEmail !== undefined) {
+            if (!normalizedEmail) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: 'Email is required' });
+            }
+
+            const existingEmail = await client.query(
+                'SELECT id FROM users WHERE email = $1 AND id <> $2',
+                [normalizedEmail, userId]
+            );
+            if (existingEmail.rows.length > 0) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: 'Email is already in use' });
+            }
+
+            await client.query(
+                'UPDATE users SET email = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+                [normalizedEmail, userId]
+            );
+        }
+
         await client.query(
             `INSERT INTO staff_profiles (user_id, first_name, last_name, employee_number, job_title)
              VALUES ($1, $2, $3, $4, $5)
@@ -192,8 +218,8 @@ const updateProfile = async (req, res) => {
                 userId,
                 firstName ?? req.user.first_name ?? '',
                 lastName ?? req.user.last_name ?? '',
-                employeeNumber ?? req.user.employee_number ?? null,
-                jobTitle ?? req.user.job_title ?? null
+                req.user.employee_number ?? null,
+                req.user.job_title ?? null
             ]
         );
 
@@ -212,18 +238,6 @@ const updateProfile = async (req, res) => {
         if (middleName !== undefined) {
             fields.push(`middle_name = $${paramCount++}`);
             values.push(middleName);
-        }
-        if (employeeNumber !== undefined) {
-            fields.push(`employee_number = $${paramCount++}`);
-            values.push(employeeNumber);
-        }
-        if (jobTitle !== undefined) {
-            fields.push(`job_title = $${paramCount++}`);
-            values.push(jobTitle);
-        }
-        if (dateJoined !== undefined) {
-            fields.push(`date_joined = $${paramCount++}`);
-            values.push(dateJoined);
         }
         if (phone !== undefined) {
             fields.push(`phone = $${paramCount++}`);
