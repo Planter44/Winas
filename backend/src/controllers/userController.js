@@ -345,8 +345,9 @@ const deleteUser = async (req, res) => {
         const requestingRole = req.user?.role_name;
         const isSuperAdmin = requestingRole === 'Super Admin';
         const isCeo = requestingRole === 'CEO';
+        const isHr = requestingRole === 'HR';
 
-        if (!isSuperAdmin && !isCeo) {
+        if (!isSuperAdmin && !isCeo && !isHr) {
             return res.status(403).json({ error: 'Access denied. Insufficient permissions.' });
         }
 

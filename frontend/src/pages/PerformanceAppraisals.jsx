@@ -231,10 +231,6 @@ const PerformanceAppraisals = () => {
                 <option value="">All Status</option>
                 <option value="Draft">Draft</option>
                 <option value="Submitted">Submitted</option>
-                <option value="Supervisor_Review">Supervisor Review</option>
-                <option value="HOD_Review">HOD Review</option>
-                <option value="HR_Review">HR Review</option>
-                <option value="CEO_Approved">CEO Approved</option>
                 <option value="Finalized">Finalized</option>
               </select>
             </div>

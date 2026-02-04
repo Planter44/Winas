@@ -131,6 +131,69 @@ const resolveSupervisorStaffId = async (client, userId, fallbackStaffId) => {
     return supervisorUserId || fallbackStaffId || null;
 };
 
+const deriveNameFromEmail = (email, userId) => {
+    const localPart = String(email || '').split('@')[0] || '';
+    const cleaned = localPart.replace(/[^a-zA-Z0-9]+/g, ' ').trim();
+    const parts = cleaned.split(' ').filter(Boolean);
+    const capitalize = (value) => value
+        ? value.charAt(0).toUpperCase() + value.slice(1)
+        : '';
+
+    if (parts.length >= 2) {
+        return {
+            firstName: capitalize(parts[0]),
+            lastName: capitalize(parts.slice(1).join(' '))
+        };
+    }
+
+    if (parts.length === 1) {
+        return {
+            firstName: capitalize(parts[0]),
+            lastName: 'User'
+        };
+    }
+
+    return {
+        firstName: 'Staff',
+        lastName: userId ? `User${userId}` : 'User'
+    };
+};
+
+const ensureStaffProfileForUser = async (client, userId) => {
+    if (!userId) return null;
+
+    try {
+        const existing = await client.query(
+            'SELECT id FROM staff_profiles WHERE user_id = $1',
+            [userId]
+        );
+
+        if (existing.rows[0]?.id) {
+            return existing.rows[0].id;
+        }
+
+        const userRes = await client.query('SELECT email FROM users WHERE id = $1', [userId]);
+        const email = userRes.rows[0]?.email || '';
+        const { firstName, lastName } = deriveNameFromEmail(email, userId);
+
+        await client.query(
+            `INSERT INTO staff_profiles (user_id, first_name, last_name)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (user_id) DO NOTHING`,
+            [userId, firstName || 'Staff', lastName || 'User']
+        );
+
+        const created = await client.query(
+            'SELECT id FROM staff_profiles WHERE user_id = $1',
+            [userId]
+        );
+
+        return created.rows[0]?.id || null;
+    } catch (error) {
+        return null;
+    }
+};
+
 const resolveStaffIdForAppraisal = async (client, userId) => {
     if (!userId) return null;
 
@@ -162,7 +225,11 @@ const resolveStaffIdForAppraisal = async (client, userId) => {
                 `SELECT id FROM staff_profiles WHERE user_id = $1`,
                 [userId]
             );
-            return staffRes.rows[0]?.id || null;
+            if (staffRes.rows[0]?.id) {
+                return staffRes.rows[0].id;
+            }
+
+            return await ensureStaffProfileForUser(client, userId);
         } catch (error) {
             return null;
         }
