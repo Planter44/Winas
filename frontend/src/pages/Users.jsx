@@ -41,8 +41,9 @@ const Users = () => {
     if (!user) return false;
     const isSuperAdmin = user.role === 'Super Admin';
     const isCeo = user.role === 'CEO';
+    const isHr = user.role === 'HR';
 
-    if (!isSuperAdmin && !isCeo) return false;
+    if (!isSuperAdmin && !isCeo && !isHr) return false;
     if (targetUser.role_name === 'Super Admin') return false;
     if (targetUser.role_name === 'CEO' && !isSuperAdmin) return false;
     return true;
