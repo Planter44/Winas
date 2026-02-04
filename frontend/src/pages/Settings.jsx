@@ -35,6 +35,7 @@ const Settings = () => {
     font_family: 'Inter',
     sidebar_width: 'normal',
     card_style: 'rounded',
+    dashboard_card_gradient_opacity: '65',
     dashboard_title: 'Dashboard',
     leaves_title: 'Leave Management',
     users_title: 'Users',
@@ -94,6 +95,7 @@ const Settings = () => {
         font_family: settingsMap.font_family || 'Inter',
         sidebar_width: settingsMap.sidebar_width || 'normal',
         card_style: settingsMap.card_style || 'rounded',
+        dashboard_card_gradient_opacity: settingsMap.dashboard_card_gradient_opacity || '65',
         dashboard_title: settingsMap.dashboard_title || 'Dashboard',
         leaves_title: settingsMap.leaves_title || 'Leave Management',
         users_title: settingsMap.users_title || 'Users',
@@ -719,6 +721,45 @@ const Settings = () => {
                           <option value="sharp">Sharp Corners</option>
                           <option value="pill">Pill Style</option>
                         </select>
+                      </div>
+                      <div className="md:col-span-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Dashboard Card Gradient Opacity
+                        </label>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={siteCustomization.dashboard_card_gradient_opacity}
+                            onChange={(e) =>
+                              setSiteCustomization({
+                                ...siteCustomization,
+                                dashboard_card_gradient_opacity: e.target.value
+                              })
+                            }
+                            className="w-full sm:flex-1 accent-primary-600"
+                          />
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={siteCustomization.dashboard_card_gradient_opacity}
+                              onChange={(e) =>
+                                setSiteCustomization({
+                                  ...siteCustomization,
+                                  dashboard_card_gradient_opacity: e.target.value
+                                })
+                              }
+                              className="input-field w-24"
+                            />
+                            <span className="text-sm text-gray-500">%</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Higher values make dashboard gradients more intense.
+                        </p>
                       </div>
                     </div>
                   </div>

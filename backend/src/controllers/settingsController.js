@@ -37,6 +37,7 @@ const resetSettingsToDefaults = async (req, res) => {
         font_family: 'Inter',
         sidebar_width: 'normal',
         card_style: 'rounded',
+        dashboard_card_gradient_opacity: '65',
         dashboard_title: 'Dashboard',
         leaves_title: 'Leave Management',
         users_title: 'Users',

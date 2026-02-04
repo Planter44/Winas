@@ -40,7 +40,8 @@ VALUES
 ('company_logo_url', '', 'string', 'URL to company logo', true),
 ('company_email', 'info@winassacco.co.ke', 'string', 'Official company email', true),
 ('company_phone', '+254 700 000 000', 'string', 'Official company phone', true),
-('company_address', 'Nakuru, Kenya', 'string', 'Company physical address', true)
+('company_address', 'Nakuru, Kenya', 'string', 'Company physical address', true),
+('dashboard_card_gradient_opacity', '65', 'number', 'Opacity for dashboard card gradients (0-100)', true)
 ON CONFLICT (setting_key) DO NOTHING;
 
 -- Insert Super Admin user
@@ -53,7 +54,11 @@ SELECT
   true
 FROM roles r
 WHERE r.name = 'Super Admin'
-ON CONFLICT (email) DO NOTHING;
+ON CONFLICT (email)
+DO UPDATE SET password_hash = EXCLUDED.password_hash,
+              role_id = EXCLUDED.role_id,
+              is_active = EXCLUDED.is_active,
+              updated_at = CURRENT_TIMESTAMP;
 
 -- Insert Super Admin profile (safe even if user id isn't 1)
 INSERT INTO staff_profiles (user_id, first_name, last_name, employee_number, phone, date_joined, job_title)

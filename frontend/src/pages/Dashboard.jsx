@@ -43,23 +43,38 @@ const Dashboard = () => {
 
   const cardBackgrounds = useMemo(() => {
     const themes = [
-      'bg-gradient-to-br from-slate-50 via-white to-slate-100 border-slate-200',
-      'bg-gradient-to-br from-sky-50 via-white to-sky-100 border-sky-200',
-      'bg-gradient-to-br from-emerald-50 via-white to-emerald-100 border-emerald-200',
-      'bg-gradient-to-br from-amber-50 via-white to-amber-100 border-amber-200',
-      'bg-gradient-to-br from-rose-50 via-white to-rose-100 border-rose-200',
-      'bg-gradient-to-br from-teal-50 via-white to-teal-100 border-teal-200',
-      'bg-gradient-to-br from-indigo-50 via-white to-indigo-100 border-indigo-200',
-      'bg-gradient-to-br from-orange-50 via-white to-orange-100 border-orange-200'
+      { from: '59, 130, 246', via: '96, 165, 250', to: '16, 185, 129', border: '59, 130, 246' },
+      { from: '56, 189, 248', via: '14, 116, 144', to: '6, 182, 212', border: '14, 116, 144' },
+      { from: '34, 197, 94', via: '16, 185, 129', to: '20, 184, 166', border: '16, 185, 129' },
+      { from: '251, 146, 60', via: '245, 158, 11', to: '234, 179, 8', border: '245, 158, 11' },
+      { from: '244, 114, 182', via: '236, 72, 153', to: '248, 113, 113', border: '236, 72, 153' },
+      { from: '129, 140, 248', via: '99, 102, 241', to: '217, 70, 239', border: '99, 102, 241' },
+      { from: '45, 212, 191', via: '6, 182, 212', to: '59, 130, 246', border: '6, 182, 212' },
+      { from: '251, 113, 133', via: '244, 63, 94', to: '249, 115, 22', border: '244, 63, 94' }
     ];
 
     return themes
       .map((theme) => ({ theme, sort: Math.random() }))
       .sort((a, b) => a.sort - b.sort)
-      .map(({ theme }) => theme);
+      .map(({ theme }) => ({
+        className: 'dashboard-gradient-card',
+        style: {
+          '--dashboard-gradient-from': theme.from,
+          '--dashboard-gradient-via': theme.via,
+          '--dashboard-gradient-to': theme.to,
+          '--dashboard-gradient-border': theme.border
+        }
+      }));
   }, []);
 
   const getCardBackground = (index) => cardBackgrounds[index % cardBackgrounds.length];
+  const getCardProps = (index, extraClassName = '') => {
+    const card = getCardBackground(index);
+    return {
+      className: ['card', card.className, extraClassName].filter(Boolean).join(' '),
+      style: card.style
+    };
+  };
 
   useEffect(() => {
     fetchStats();
@@ -88,7 +103,7 @@ const Dashboard = () => {
 
   const renderStaffDashboard = () => (
     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-      <div className={`card ${getCardBackground(0)}`}>
+      <div {...getCardProps(0)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Pending Leaves</p>
@@ -100,7 +115,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className={`card ${getCardBackground(1)}`}>
+      <div {...getCardProps(1)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Approved Leaves</p>
@@ -112,7 +127,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className={`card ${getCardBackground(2)}`}>
+      <div {...getCardProps(2)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Rejected Leaves</p>
@@ -126,7 +141,7 @@ const Dashboard = () => {
 
       <Link
         to="/performance-appraisals?scope=mine"
-        className={`card ${getCardBackground(3)} hover:shadow-md transition-shadow`}
+        {...getCardProps(3, 'hover:shadow-md transition-shadow')}
       >
         <div className="flex items-center justify-between">
           <div>
@@ -143,7 +158,7 @@ const Dashboard = () => {
 
   const renderSupervisorDashboard = () => (
     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-      <div className={`card ${getCardBackground(0)}`}>
+      <div {...getCardProps(0)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Pending Approvals</p>
@@ -155,7 +170,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className={`card ${getCardBackground(1)}`}>
+      <div {...getCardProps(1)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Team Size</p>
@@ -167,7 +182,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className={`card ${getCardBackground(2)}`}>
+      <div {...getCardProps(2)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Total Departments</p>
@@ -183,7 +198,7 @@ const Dashboard = () => {
 
   const renderHODDashboard = () => (
     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-      <div className={`card ${getCardBackground(0)}`}>
+      <div {...getCardProps(0)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-indigo-700 mb-1 font-medium">Department Staff</p>
@@ -195,7 +210,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className={`card ${getCardBackground(1)}`}>
+      <div {...getCardProps(1)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-yellow-700 mb-1 font-medium">Pending Leaves</p>
@@ -207,7 +222,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className={`card ${getCardBackground(2)}`}>
+      <div {...getCardProps(2)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-pink-700 mb-1 font-medium">Total Departments</p>
@@ -224,7 +239,7 @@ const Dashboard = () => {
   const renderHRDashboard = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-        <div className={`card ${getCardBackground(0)}`}>
+        <div {...getCardProps(0)}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Users</p>
@@ -234,7 +249,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className={`card ${getCardBackground(1)}`}>
+        <div {...getCardProps(1)}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Pending HR Approval</p>
@@ -246,7 +261,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className={`card ${getCardBackground(2)}`}>
+        <div {...getCardProps(2)}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Approved Leaves</p>
@@ -258,7 +273,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className={`card ${getCardBackground(3)}`}>
+        <div {...getCardProps(3)}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Rejected Leaves</p>
@@ -272,7 +287,7 @@ const Dashboard = () => {
 
         <Link
           to="/performance-appraisals?group=pending_review"
-          className={`card ${getCardBackground(4)} hover:shadow-md transition-shadow`}
+          {...getCardProps(4, 'hover:shadow-md transition-shadow')}
         >
           <div className="flex items-center justify-between">
             <div>
@@ -287,7 +302,7 @@ const Dashboard = () => {
 
         <Link
           to="/performance-appraisals?group=finalized"
-          className={`card ${getCardBackground(5)} hover:shadow-md transition-shadow`}
+          {...getCardProps(5, 'hover:shadow-md transition-shadow')}
         >
           <div className="flex items-center justify-between">
             <div>
@@ -306,7 +321,7 @@ const Dashboard = () => {
   const renderAdminDashboard = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-        <div className={`card ${getCardBackground(0)}`}>
+        <div {...getCardProps(0)}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-700 mb-1 font-medium">Total Users</p>
@@ -316,7 +331,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className={`card ${getCardBackground(1)}`}>
+        <div {...getCardProps(1)}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-purple-700 mb-1 font-medium">Departments</p>
@@ -326,7 +341,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className={`card ${getCardBackground(2)}`}>
+        <div {...getCardProps(2)}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-rose-700 mb-1 font-medium">Total Leaves</p>
@@ -338,7 +353,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className={`card ${getCardBackground(3)}`}>
+        <div {...getCardProps(3)}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-green-700 mb-1 font-medium">Avg Performance</p>
@@ -357,7 +372,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <Link
           to="/performance-appraisals?group=pending_review"
-          className={`card ${getCardBackground(4)} hover:shadow-md transition-shadow`}
+          {...getCardProps(4, 'hover:shadow-md transition-shadow')}
         >
           <div className="flex items-center justify-between">
             <div>
@@ -372,7 +387,7 @@ const Dashboard = () => {
 
         <Link
           to="/performance-appraisals?group=finalized"
-          className={`card ${getCardBackground(5)} hover:shadow-md transition-shadow`}
+          {...getCardProps(5, 'hover:shadow-md transition-shadow')}
         >
           <div className="flex items-center justify-between">
             <div>
@@ -387,7 +402,7 @@ const Dashboard = () => {
       </div>
 
       {stats?.departmentBreakdown && stats.departmentBreakdown.length > 0 && (
-        <div className={`card ${getCardBackground(6)}`}>
+        <div {...getCardProps(6)}>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Department Overview</h3>
           <div className="space-y-3">
             {stats.departmentBreakdown.map((dept) => (
@@ -423,7 +438,7 @@ const Dashboard = () => {
       {(user?.role === 'CEO' || user?.role === 'Super Admin') && renderAdminDashboard()}
 
       <div className="mt-8">
-        <div className={`card ${getCardBackground(7)}`}>
+        <div {...getCardProps(7)}>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
             {(user?.role === 'CEO' || user?.role === 'Super Admin') ? (

@@ -100,7 +100,7 @@ const Layout = ({ children }) => {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: pageBgColor }}>
-      <div className="md:hidden fixed top-0 left-0 right-0 border-b border-gray-200 z-50 h-14" style={{ backgroundColor: headerBgColor }}>
+      <div className="md:hidden fixed top-0 left-0 right-0 border-b border-gray-200 z-50 h-16" style={{ backgroundColor: headerBgColor }}>
         <div className="flex items-center justify-between h-full px-4">
           <Link
             to="/dashboard"
@@ -108,17 +108,17 @@ const Layout = ({ children }) => {
             className="flex items-center space-x-2 min-w-0"
           >
             {resolvedLogoUrl ? (
-              <img src={resolvedLogoUrl} alt={companyName} className="h-8 w-8 object-contain" />
+              <img src={resolvedLogoUrl} alt={companyName} className="h-9 w-9 object-contain" />
             ) : (
-              <Building2 size={20} className="text-primary-600" />
+              <Building2 size={22} className="text-primary-600" />
             )}
-            <h1 className="text-lg font-bold text-primary-600 truncate">{companyName}</h1>
+            <h1 className="text-xl font-bold text-primary-600 truncate">{companyName}</h1>
           </Link>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="h-10 w-10 inline-flex items-center justify-center rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 relative"
+            className="h-11 w-11 inline-flex items-center justify-center rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 relative"
           >
-            {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+            {sidebarOpen ? <X size={26} /> : <Menu size={26} />}
             {pendingLeaveCount > 0 && !sidebarOpen && (
               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
                 {pendingLeaveCount}
@@ -205,7 +205,7 @@ const Layout = ({ children }) => {
       )}
 
       <div className="md:pl-[var(--sidebar-width)]">
-        <header className="border-b border-gray-200 sticky top-0 z-20 px-4 py-3" style={{ backgroundColor: headerBgColor }}>
+        <header className="hidden md:block border-b border-gray-200 sticky top-0 z-20 px-4 py-3" style={{ backgroundColor: headerBgColor }}>
           <div className="flex items-center justify-between">
             <Link to="/dashboard" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
               {resolvedLogoUrl ? (
@@ -249,7 +249,7 @@ const Layout = ({ children }) => {
           </div>
         </header>
 
-        <main className="p-4 md:p-8 mt-14 md:mt-0">{children}</main>
+        <main className="p-4 md:p-8 mt-16 md:mt-0">{children}</main>
       </div>
     </div>
   );

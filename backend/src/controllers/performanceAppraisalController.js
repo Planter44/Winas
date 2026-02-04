@@ -326,29 +326,34 @@ const resolveStaffIdForAppraisal = async (client, userId) => {
     const resolveStaffIdFromStaffTable = async () => {
         try {
             const columnsRes = await client.query(
-                `SELECT column_name
+                `SELECT column_name, is_nullable, column_default, data_type
                  FROM information_schema.columns
                  WHERE table_schema = 'public'
                    AND table_name = 'staff'`
             );
-            const columns = new Set(columnsRes.rows.map(r => r.column_name));
+            const columns = new Map(columnsRes.rows.map(r => [r.column_name, r]));
             if (columns.size === 0) return null;
 
             const userRes = await client.query(
-                `SELECT email FROM users WHERE id = $1`,
+                `SELECT email, department_id FROM users WHERE id = $1`,
                 [userId]
             );
             const userEmail = userRes.rows[0]?.email || null;
+            const departmentId = userRes.rows[0]?.department_id || null;
             const normalizedEmail = userEmail ? String(userEmail).toLowerCase() : null;
 
             let staffProfileId = null;
             let employeeNumber = null;
             const profileRes = await client.query(
-                `SELECT id, employee_number FROM staff_profiles WHERE user_id = $1`,
+                `SELECT id, employee_number, first_name, last_name, job_title
+                 FROM staff_profiles WHERE user_id = $1`,
                 [userId]
             );
             staffProfileId = profileRes.rows[0]?.id || null;
             employeeNumber = profileRes.rows[0]?.employee_number || null;
+            const firstName = profileRes.rows[0]?.first_name || null;
+            const lastName = profileRes.rows[0]?.last_name || null;
+            const jobTitle = profileRes.rows[0]?.job_title || null;
 
             const tryLookup = async (column, value) => {
                 if (!value) return null;
@@ -383,6 +388,108 @@ const resolveStaffIdForAppraisal = async (client, userId) => {
                     if (id) return id;
                 }
             }
+
+            const hasIdentifierColumn = columns.has('user_id')
+                || columns.has('staff_profile_id')
+                || employeeColumns.some(col => columns.has(col))
+                || emailColumns.some(col => columns.has(col));
+            if (!hasIdentifierColumn) return null;
+
+            const requiredColumns = columnsRes.rows.filter(
+                row => row.is_nullable === 'NO' && !row.column_default && row.column_name !== 'id'
+            );
+            const insertCols = [];
+            const insertValues = [];
+            const pushValue = (columnName, value) => {
+                if (!columns.has(columnName)) return;
+                if (insertCols.includes(columnName)) return;
+                if (value === undefined) return;
+                insertCols.push(columnName);
+                insertValues.push(value);
+            };
+            const fallbackToken = Date.now();
+            const resolveFallbackValue = (column) => {
+                const columnName = column?.column_name || 'value';
+                const type = String(column?.data_type || '').toLowerCase();
+                if (
+                    type.includes('int') ||
+                    type === 'numeric' ||
+                    type === 'decimal' ||
+                    type === 'double precision' ||
+                    type === 'real'
+                ) {
+                    return 0;
+                }
+                if (type === 'boolean') {
+                    return false;
+                }
+                if (type === 'date') {
+                    return new Date().toISOString().slice(0, 10);
+                }
+                if (type.includes('timestamp')) {
+                    return new Date();
+                }
+                const raw = `AUTO-${columnName}-${userId || 'staff'}-${fallbackToken}`;
+                return raw.length > 60 ? raw.slice(0, 60) : raw;
+            };
+
+            pushValue('user_id', userId);
+            pushValue('staff_profile_id', staffProfileId);
+
+            const employeeValue = employeeNumber || (userId ? `AUTO-${userId}` : null);
+            const employeeColumn = employeeColumns.find(col => columns.has(col));
+            if (employeeColumn) {
+                pushValue(employeeColumn, employeeValue);
+            }
+
+            const emailValue = normalizedEmail || userEmail;
+            const emailColumn = emailColumns.find(col => columns.has(col));
+            if (emailColumn) {
+                pushValue(emailColumn, emailValue);
+            }
+
+            pushValue('first_name', firstName);
+            pushValue('last_name', lastName);
+            pushValue('job_title', jobTitle);
+            pushValue('department_id', departmentId);
+
+            requiredColumns.forEach((column) => {
+                if (insertCols.includes(column.column_name)) return;
+                pushValue(column.column_name, resolveFallbackValue(column));
+            });
+
+            if (insertCols.length === 0) return null;
+
+            const placeholders = insertValues.map((_, idx) => `$${idx + 1}`).join(', ');
+            const insertRes = await client.query(
+                `INSERT INTO staff (${insertCols.join(', ')})
+                 VALUES (${placeholders})
+                 ON CONFLICT DO NOTHING
+                 RETURNING id`,
+                insertValues
+            );
+            if (insertRes.rows[0]?.id) return insertRes.rows[0].id;
+
+            if (columns.has('user_id')) {
+                const id = await tryLookup('user_id', userId);
+                if (id) return id;
+            }
+            if (columns.has('staff_profile_id')) {
+                const id = await tryLookup('staff_profile_id', staffProfileId);
+                if (id) return id;
+            }
+            for (const col of employeeColumns) {
+                if (columns.has(col)) {
+                    const id = await tryLookup(col, employeeValue);
+                    if (id) return id;
+                }
+            }
+            for (const col of emailColumns) {
+                if (columns.has(col)) {
+                    const id = await tryLookup(col, emailValue);
+                    if (id) return id;
+                }
+            }
         } catch (error) {
             return null;
         }
@@ -400,9 +507,7 @@ const resolveStaffIdForAppraisal = async (client, userId) => {
 
     if (foreignTable === 'staff') {
         const staffId = await resolveStaffIdFromStaffTable();
-        if (staffId) return staffId;
-        const fallbackStaffId = await resolveStaffProfileId();
-        return fallbackStaffId || userId;
+        return staffId || null;
     }
 
     const staffId = await resolveStaffProfileId();
@@ -423,6 +528,23 @@ const ensurePerformanceAppraisalSchema = async (client) => {
     await client.query(
         `ALTER TABLE performance_appraisals
          ADD COLUMN IF NOT EXISTS performance_sections_data JSONB`
+    );
+
+    await client.query(
+        `DO $$
+         BEGIN
+             IF EXISTS (
+                 SELECT 1
+                 FROM information_schema.columns
+                 WHERE table_schema = 'public'
+                   AND table_name = 'performance_appraisals'
+                   AND column_name = 'appraisal_period_id'
+                   AND is_nullable = 'NO'
+             ) THEN
+                 ALTER TABLE performance_appraisals
+                     ALTER COLUMN appraisal_period_id DROP NOT NULL;
+             END IF;
+         END $$;`
     );
 
     await client.query(

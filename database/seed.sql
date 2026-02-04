@@ -108,6 +108,7 @@ INSERT INTO system_settings (setting_key, setting_value, setting_type, descripti
 ('company_email', 'info@winassacco.co.ke', 'string', 'Official company email', true),
 ('company_phone', '+254 700 000 000', 'string', 'Official company phone', true),
 ('company_address', 'Nakuru, Kenya', 'string', 'Company physical address', true),
+('dashboard_card_gradient_opacity', '65', 'number', 'Opacity for dashboard card gradients (0-100)', true),
 ('leave_approval_levels', '2', 'number', 'Number of approval levels for leave (Supervisor + HR)', false),
 ('appraisal_frequency', 'Quarterly', 'string', 'Default appraisal frequency', false),
 ('financial_year_start', '01-01', 'string', 'Financial year start date (MM-DD)', false),

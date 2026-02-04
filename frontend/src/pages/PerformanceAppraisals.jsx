@@ -246,7 +246,7 @@ const PerformanceAppraisals = () => {
         )}
 
         {/* Appraisals Table */}
-        <div className="card overflow-hidden">
+        <div className="card overflow-hidden p-4 sm:p-6">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -260,78 +260,48 @@ const PerformanceAppraisals = () => {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Employee
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Department
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Period
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Rating
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+            <>
+              <div className="md:hidden">
+                <div className="grid grid-cols-2 gap-3">
                   {filteredAppraisals.map((appraisal) => (
-                    <tr key={appraisal.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center">
-                            <User className="h-5 w-5 text-primary-600" />
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {appraisal.first_name} {appraisal.last_name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {appraisal.employee_number}
-                            </div>
-                          </div>
+                    <div key={appraisal.id} className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {appraisal.first_name} {appraisal.last_name}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">{appraisal.department_name || 'N/A'}</p>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{appraisal.department_name}</div>
-                        <div className="text-sm text-gray-500">{appraisal.job_title}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm text-gray-900">
-                          <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                          {appraisal.period_type === 'Quarterly' ? `Q${appraisal.period_quarter} ` : ''}
-                          {appraisal.period_year}
+                        <div className="shrink-0">{getStatusBadge(appraisal.status)}</div>
+                      </div>
+                      <div className="mt-2 space-y-1 text-xs text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                          <span>
+                            {appraisal.period_type === 'Quarterly' ? `Q${appraisal.period_quarter} ` : ''}
+                            {appraisal.period_year}
+                          </span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getRatingBadge(appraisal.total_performance_rating)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(appraisal.status)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
-                          <Link
-                            to={`/performance-appraisals/${appraisal.id}`}
-                            className="text-primary-600 hover:text-primary-900 p-1"
-                            title="View"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Link>
+                        <div className="text-gray-500">{appraisal.employee_number}</div>
+                      </div>
+                      <div className="mt-2">
+                        {getRatingBadge(appraisal.total_performance_rating) || (
+                          <span className="text-xs text-gray-400">No rating</span>
+                        )}
+                      </div>
+                      <div className="mt-3 flex items-center justify-between">
+                        <Link
+                          to={`/performance-appraisals/${appraisal.id}`}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          View
+                        </Link>
+                        <div className="flex items-center gap-2">
                           {canEditAppraisal(appraisal) && (
                             <Link
                               to={`/performance-appraisals/${appraisal.id}/edit`}
-                              className="text-gray-600 hover:text-gray-900 p-1"
+                              className="text-gray-500 hover:text-gray-800"
                               title="Edit"
                             >
                               <Edit2 className="w-4 h-4" />
@@ -340,19 +310,112 @@ const PerformanceAppraisals = () => {
                           {canDeleteAppraisal(appraisal) && (
                             <button
                               onClick={() => handleDelete(appraisal.id)}
-                              className="text-red-600 hover:text-red-900 p-1"
+                              className="text-red-600 hover:text-red-800"
                               title="Delete"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              </div>
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Employee
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Department
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Period
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Rating
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredAppraisals.map((appraisal) => (
+                      <tr key={appraisal.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center">
+                              <User className="h-5 w-5 text-primary-600" />
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {appraisal.first_name} {appraisal.last_name}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {appraisal.employee_number}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{appraisal.department_name}</div>
+                          <div className="text-sm text-gray-500">{appraisal.job_title}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-sm text-gray-900">
+                            <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                            {appraisal.period_type === 'Quarterly' ? `Q${appraisal.period_quarter} ` : ''}
+                            {appraisal.period_year}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getRatingBadge(appraisal.total_performance_rating)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getStatusBadge(appraisal.status)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end space-x-2">
+                            <Link
+                              to={`/performance-appraisals/${appraisal.id}`}
+                              className="text-primary-600 hover:text-primary-900 p-1"
+                              title="View"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Link>
+                            {canEditAppraisal(appraisal) && (
+                              <Link
+                                to={`/performance-appraisals/${appraisal.id}/edit`}
+                                className="text-gray-600 hover:text-gray-900 p-1"
+                                title="Edit"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Link>
+                            )}
+                            {canDeleteAppraisal(appraisal) && (
+                              <button
+                                onClick={() => handleDelete(appraisal.id)}
+                                className="text-red-600 hover:text-red-900 p-1"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
 

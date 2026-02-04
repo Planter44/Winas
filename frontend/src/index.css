@@ -13,6 +13,7 @@
   --font-family: 'Inter';
   --sidebar-width: 256px;
   --card-border-radius: 0.5rem;
+  --dashboard-card-gradient-opacity: 0.65;
 }
 
 * {
@@ -59,6 +60,16 @@ body {
   .card {
     @apply bg-white shadow-sm border border-gray-200 p-6;
     border-radius: var(--card-border-radius);
+  }
+
+  .dashboard-gradient-card {
+    background-image: linear-gradient(
+      135deg,
+      rgba(var(--dashboard-gradient-from, 59, 130, 246), var(--dashboard-card-gradient-opacity)),
+      rgba(var(--dashboard-gradient-via, 56, 189, 248), calc(var(--dashboard-card-gradient-opacity) * 0.75)),
+      rgba(var(--dashboard-gradient-to, 16, 185, 129), var(--dashboard-card-gradient-opacity))
+    );
+    border-color: rgba(var(--dashboard-gradient-border, 59, 130, 246), 0.35);
   }
 
   .badge {

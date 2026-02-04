@@ -78,14 +78,17 @@ const Users = () => {
 
   return (
     <Layout>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Users</h1>
           <p className="text-gray-600">Manage system users and staff</p>
         </div>
         {(hasMinLevel(2) || user?.role === 'HR') && (
-          <Link to="/users/new" className="btn-primary flex items-center">
-            <Plus className="mr-2" size={20} />
+          <Link
+            to="/users/new"
+            className="btn-primary inline-flex items-center justify-center gap-2 self-start sm:self-auto"
+          >
+            <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
             Add User
           </Link>
         )}

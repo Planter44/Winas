@@ -3,7 +3,8 @@ require('dotenv').config();
 
 const db = require('../database/db');
 
-const shouldSeed = () => String(process.env.AUTO_SEED_USERS || '').toLowerCase() === 'true';
+const shouldSeedUsers = () => String(process.env.AUTO_SEED_USERS || '').toLowerCase() === 'true';
+const shouldSeedSuperAdmin = () => String(process.env.AUTO_SEED_SUPERADMIN || '').toLowerCase() !== 'false';
 
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
@@ -61,11 +62,12 @@ const upsertUser = async ({
         `INSERT INTO users (email, password_hash, role_id, department_id, supervisor_id, is_active)
          VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (email)
-         DO UPDATE SET role_id = EXCLUDED.role_id,
-                       department_id = EXCLUDED.department_id,
-                       supervisor_id = EXCLUDED.supervisor_id,
-                       is_active = EXCLUDED.is_active,
-                       updated_at = CURRENT_TIMESTAMP
+         DO UPDATE SET password_hash = EXCLUDED.password_hash,
+                      role_id = EXCLUDED.role_id,
+                      department_id = EXCLUDED.department_id,
+                      supervisor_id = EXCLUDED.supervisor_id,
+                      is_active = EXCLUDED.is_active,
+                      updated_at = CURRENT_TIMESTAMP
          RETURNING id`,
         [emailNorm, passwordHash, roleId, departmentId, supervisorUserId, isActive]
     );
@@ -95,8 +97,11 @@ const upsertProfile = async ({
 };
 
 const main = async () => {
-    if (!shouldSeed()) {
-        console.log('AUTO_SEED_USERS is not true. Skipping user seeding.');
+    const seedUsers = shouldSeedUsers();
+    const seedSuperAdmin = shouldSeedSuperAdmin();
+
+    if (!seedUsers && !seedSuperAdmin) {
+        console.log('AUTO_SEED_USERS and AUTO_SEED_SUPERADMIN are disabled. Skipping user seeding.');
         process.exit(0);
     }
 
@@ -108,127 +113,131 @@ const main = async () => {
         await ensureRolesAndDepartments(client);
 
         const roleIds = await getRoleIds(client);
-        const deptIds = await getDepartmentIds(client);
-
-        const superAdminEmail = 'johnsonmuhabi@gmail.com';
-        const superAdminId = await upsertUser({
-            client,
-            email: superAdminEmail,
-            password: 'Admin@0010',
-            roleId: roleIds.get('Super Admin')
-        });
-        await upsertProfile({
-            client,
-            userId: superAdminId,
-            firstName: 'Johnson',
-            lastName: 'Muhabi',
-            employeeNumber: 'EMP001',
-            jobTitle: 'Super Administrator'
-        });
-
-        const ceoId = await upsertUser({
-            client,
-            email: 'ceo@winassacco.co.ke',
-            password: 'Password@0609',
-            roleId: roleIds.get('CEO')
-        });
-        await upsertProfile({
-            client,
-            userId: ceoId,
-            firstName: 'CEO',
-            lastName: 'Winas',
-            employeeNumber: 'CEO001',
-            jobTitle: 'Chief Executive Officer'
-        });
-
-        const hrMgrId = await upsertUser({
-            client,
-            email: 'hr.manager@winassacco.co.ke',
-            password: 'Password@0609',
-            roleId: roleIds.get('HR'),
-            departmentId: deptIds.get('Human Resources') || null,
-            supervisorUserId: ceoId
-        });
-        await upsertProfile({
-            client,
-            userId: hrMgrId,
-            firstName: 'HR',
-            lastName: 'Manager',
-            employeeNumber: 'HRM001',
-            jobTitle: 'HR Manager'
-        });
-
-        const departments = [
-            { name: 'Finance', code: 'FIN' },
-            { name: 'ICT', code: 'ICT' },
-            { name: 'Admin', code: 'ADM' },
-            { name: 'Marketing', code: 'MKT' },
-            { name: 'Operations', code: 'OPS' },
-            { name: 'Human Resources', code: 'HR' }
-        ];
-
-        const hodByDept = new Map();
-        const supByDept = new Map();
-
-        for (const dept of departments) {
-            const deptId = deptIds.get(dept.name) || null;
-
-            const hodEmail = `${dept.code.toLowerCase()}.hod@winassacco.co.ke`;
-            const hodId = await upsertUser({
+        if (seedSuperAdmin) {
+            const superAdminEmail = 'johnsonmuhabi@gmail.com';
+            const superAdminId = await upsertUser({
                 client,
-                email: hodEmail,
+                email: superAdminEmail,
+                password: 'Admin@0010',
+                roleId: roleIds.get('Super Admin')
+            });
+            await upsertProfile({
+                client,
+                userId: superAdminId,
+                firstName: 'Johnson',
+                lastName: 'Muhabi',
+                employeeNumber: 'EMP001',
+                jobTitle: 'Super Administrator'
+            });
+        }
+
+        if (seedUsers) {
+            const deptIds = await getDepartmentIds(client);
+
+            const ceoId = await upsertUser({
+                client,
+                email: 'ceo@winassacco.co.ke',
                 password: 'Password@0609',
-                roleId: roleIds.get('HOD'),
-                departmentId: deptId,
+                roleId: roleIds.get('CEO')
+            });
+            await upsertProfile({
+                client,
+                userId: ceoId,
+                firstName: 'CEO',
+                lastName: 'Winas',
+                employeeNumber: 'CEO001',
+                jobTitle: 'Chief Executive Officer'
+            });
+
+            const hrMgrId = await upsertUser({
+                client,
+                email: 'hr.manager@winassacco.co.ke',
+                password: 'Password@0609',
+                roleId: roleIds.get('HR'),
+                departmentId: deptIds.get('Human Resources') || null,
                 supervisorUserId: ceoId
             });
             await upsertProfile({
                 client,
-                userId: hodId,
-                firstName: dept.code,
-                lastName: 'HOD',
-                employeeNumber: `${dept.code}HOD001`,
-                jobTitle: `Head of ${dept.name}`
+                userId: hrMgrId,
+                firstName: 'HR',
+                lastName: 'Manager',
+                employeeNumber: 'HRM001',
+                jobTitle: 'HR Manager'
             });
-            hodByDept.set(dept.name, hodId);
 
-            const supEmail = `${dept.code.toLowerCase()}.supervisor@winassacco.co.ke`;
-            const supId = await upsertUser({
-                client,
-                email: supEmail,
-                password: 'Password@0609',
-                roleId: roleIds.get('Supervisor'),
-                departmentId: deptId,
-                supervisorUserId: hodId
-            });
-            await upsertProfile({
-                client,
-                userId: supId,
-                firstName: dept.code,
-                lastName: 'Supervisor',
-                employeeNumber: `${dept.code}SUP001`,
-                jobTitle: `${dept.name} Supervisor`
-            });
-            supByDept.set(dept.name, supId);
+            const departments = [
+                { name: 'Finance', code: 'FIN' },
+                { name: 'ICT', code: 'ICT' },
+                { name: 'Admin', code: 'ADM' },
+                { name: 'Marketing', code: 'MKT' },
+                { name: 'Operations', code: 'OPS' },
+                { name: 'Human Resources', code: 'HR' }
+            ];
 
-            for (let i = 1; i <= 5; i++) {
-                const staffEmail = `${dept.code.toLowerCase()}.staff${i}@winassacco.co.ke`;
-                const staffId = await upsertUser({
+            const hodByDept = new Map();
+            const supByDept = new Map();
+
+            for (const dept of departments) {
+                const deptId = deptIds.get(dept.name) || null;
+
+                const hodEmail = `${dept.code.toLowerCase()}.hod@winassacco.co.ke`;
+                const hodId = await upsertUser({
                     client,
-                    email: staffEmail,
+                    email: hodEmail,
                     password: 'Password@0609',
-                    roleId: roleIds.get('Staff'),
+                    roleId: roleIds.get('HOD'),
                     departmentId: deptId,
-                    supervisorUserId: supId
+                    supervisorUserId: ceoId
                 });
                 await upsertProfile({
                     client,
-                    userId: staffId,
+                    userId: hodId,
                     firstName: dept.code,
-                    lastName: `Staff${i}`,
-                    employeeNumber: `${dept.code}STF${String(i).padStart(2, '0')}`,
-                    jobTitle: `${dept.name} Staff`
+                    lastName: 'HOD',
+                    employeeNumber: `${dept.code}HOD001`,
+                    jobTitle: `Head of ${dept.name}`
                 });
+                hodByDept.set(dept.name, hodId);
+
+                const supEmail = `${dept.code.toLowerCase()}.supervisor@winassacco.co.ke`;
+                const supId = await upsertUser({
+                    client,
+                    email: supEmail,
+                    password: 'Password@0609',
+                    roleId: roleIds.get('Supervisor'),
+                    departmentId: deptId,
+                    supervisorUserId: hodId
+                });
+                await upsertProfile({
+                    client,
+                    userId: supId,
+                    firstName: dept.code,
+                    lastName: 'Supervisor',
+                    employeeNumber: `${dept.code}SUP001`,
+                    jobTitle: `${dept.name} Supervisor`
+                });
+                supByDept.set(dept.name, supId);
+
+                for (let i = 1; i <= 5; i++) {
+                    const staffEmail = `${dept.code.toLowerCase()}.staff${i}@winassacco.co.ke`;
+                    const staffId = await upsertUser({
+                        client,
+                        email: staffEmail,
+                        password: 'Password@0609',
+                        roleId: roleIds.get('Staff'),
+                        departmentId: deptId,
+                        supervisorUserId: supId
+                    });
+                    await upsertProfile({
+                        client,
+                        userId: staffId,
+                        firstName: dept.code,
+                        lastName: `Staff${i}`,
+                        employeeNumber: `${dept.code}STF${String(i).padStart(2, '0')}`,
+                        jobTitle: `${dept.name} Staff`
+                    });
+                }
             }
         }
 

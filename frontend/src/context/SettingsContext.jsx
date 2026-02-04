@@ -20,6 +20,7 @@ const defaultSettings = {
   font_family: 'Inter',
   sidebar_width: 'normal',
   card_style: 'rounded',
+  dashboard_card_gradient_opacity: '65',
   dashboard_title: 'Dashboard',
   leaves_title: 'Leave Management',
   users_title: 'Users',
@@ -104,6 +105,11 @@ export const SettingsProvider = ({ children }) => {
     const cardStyle = settingsMap.card_style || defaultSettings.card_style;
     const borderRadiusMap = { rounded: '0.5rem', sharp: '0', pill: '1.5rem' };
     root.style.setProperty('--card-border-radius', borderRadiusMap[cardStyle] || '0.5rem');
+
+    // Apply dashboard card gradient opacity
+    const rawOpacity = parseFloat(settingsMap.dashboard_card_gradient_opacity || defaultSettings.dashboard_card_gradient_opacity);
+    const safeOpacity = Number.isFinite(rawOpacity) ? Math.min(Math.max(rawOpacity, 0), 100) : 65;
+    root.style.setProperty('--dashboard-card-gradient-opacity', (safeOpacity / 100).toString());
   };
 
   const refreshSettings = () => {
