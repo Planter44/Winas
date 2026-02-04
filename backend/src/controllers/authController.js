@@ -11,6 +11,7 @@ const login = async (req, res) => {
             return res.status(400).json({ error: 'Email and password are required' });
         }
 
+        const normalizedEmail = String(email).trim().toLowerCase();
         const result = await db.query(
             `SELECT u.id, u.email, u.password_hash, u.role_id, u.department_id, u.is_active,
                     r.name as role_name, r.level as role_level,
@@ -20,8 +21,8 @@ const login = async (req, res) => {
              JOIN roles r ON u.role_id = r.id
              LEFT JOIN departments d ON u.department_id = d.id
              LEFT JOIN staff_profiles sp ON u.id = sp.user_id
-             WHERE u.email = $1 AND u.deleted_at IS NULL`,
-            [email.toLowerCase()]
+             WHERE LOWER(TRIM(u.email)) = $1 AND u.deleted_at IS NULL`,
+            [normalizedEmail]
         );
 
         if (result.rows.length === 0) {

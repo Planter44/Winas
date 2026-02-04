@@ -176,11 +176,51 @@ const ensureStaffProfileForUser = async (client, userId) => {
         const email = userRes.rows[0]?.email || '';
         const { firstName, lastName } = deriveNameFromEmail(email, userId);
 
+        let hasEmployeeNumber = false;
+        let requiresEmployeeNumber = false;
+        let hasJobTitle = false;
+        let requiresJobTitle = false;
+
+        try {
+            const columnRes = await client.query(
+                `SELECT column_name, is_nullable
+                 FROM information_schema.columns
+                 WHERE table_schema = 'public'
+                   AND table_name = 'staff_profiles'`
+            );
+            const columnMap = new Map(columnRes.rows.map(row => [row.column_name, row.is_nullable]));
+            hasEmployeeNumber = columnMap.has('employee_number');
+            requiresEmployeeNumber = columnMap.get('employee_number') === 'NO';
+            hasJobTitle = columnMap.has('job_title');
+            requiresJobTitle = columnMap.get('job_title') === 'NO';
+        } catch (e) {
+            // ignore column metadata failures
+        }
+
+        const columns = ['user_id', 'first_name', 'last_name'];
+        const values = [userId, firstName || 'Staff', lastName || 'User'];
+
+        if (hasEmployeeNumber) {
+            columns.push('employee_number');
+            const employeeNumberValue = requiresEmployeeNumber
+                ? `AUTO-${userId}-${Date.now()}`
+                : null;
+            values.push(employeeNumberValue);
+        }
+
+        if (hasJobTitle) {
+            columns.push('job_title');
+            const jobTitleValue = requiresJobTitle ? 'Staff' : null;
+            values.push(jobTitleValue);
+        }
+
+        const placeholders = values.map((_, idx) => `$${idx + 1}`).join(', ');
+
         await client.query(
-            `INSERT INTO staff_profiles (user_id, first_name, last_name)
-             VALUES ($1, $2, $3)
+            `INSERT INTO staff_profiles (${columns.join(', ')})
+             VALUES (${placeholders})
              ON CONFLICT (user_id) DO NOTHING`,
-            [userId, firstName || 'Staff', lastName || 'User']
+            values
         );
 
         const created = await client.query(
@@ -800,7 +840,19 @@ const getPillarsWithKRAs = async (req, res) => {
 const getSoftSkills = async (req, res) => {
     try {
         const result = await db.query(
-            `SELECT * FROM appraisal_soft_skills WHERE is_active = true ORDER BY sort_order`
+            `WITH ranked AS (
+                SELECT *,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY LOWER(name), LOWER(COALESCE(description, ''))
+                           ORDER BY sort_order NULLS LAST, id
+                       ) AS rn
+                FROM appraisal_soft_skills
+                WHERE is_active = true
+            )
+            SELECT id, name, description, weight, sort_order, is_active, created_at
+            FROM ranked
+            WHERE rn = 1
+            ORDER BY sort_order NULLS LAST, id`
         );
         res.json(result.rows);
     } catch (error) {
@@ -880,12 +932,14 @@ const createAppraisal = async (req, res) => {
         }
 
         const createColumnsResult = await client.query(
-            `SELECT column_name
+            `SELECT column_name, is_nullable
              FROM information_schema.columns
              WHERE table_schema = 'public'
                AND table_name = 'performance_appraisals'`
         );
         const createAppraisalColumns = new Set(createColumnsResult.rows.map(r => r.column_name));
+        const createColumnMeta = new Map(createColumnsResult.rows.map(r => [r.column_name, r]));
+        const staffIdNullable = createColumnMeta.get('staff_id')?.is_nullable === 'YES';
 
         const sectionBTotalNum = computeSectionBTotal({ kraScores, performanceSections, fallback: sectionBTotal });
         const sectionCTotalNum = computeSectionCTotal({ softSkillScores, fallback: sectionCTotal });
@@ -894,7 +948,7 @@ const createAppraisal = async (req, res) => {
             ? await resolveStaffIdForAppraisal(client, targetUserId)
             : null;
 
-        if (createAppraisalColumns.has('staff_id') && !resolvedStaffId) {
+        if (createAppraisalColumns.has('staff_id') && !resolvedStaffId && !staffIdNullable) {
             await client.query('ROLLBACK');
             return res.status(400).json({
                 error: 'Staff profile is required for this appraisal. Please create the staff profile first.'
@@ -1861,12 +1915,14 @@ const updateAppraisal = async (req, res) => {
         await ensurePerformanceAppraisalSchema(client);
 
         const columnsResult = await client.query(
-            `SELECT column_name
+            `SELECT column_name, is_nullable
              FROM information_schema.columns
              WHERE table_schema = 'public'
                AND table_name = 'performance_appraisals'`
         );
         const appraisalColumns = new Set(columnsResult.rows.map(r => r.column_name));
+        const appraisalColumnMeta = new Map(columnsResult.rows.map(r => [r.column_name, r]));
+        const staffIdNullable = appraisalColumnMeta.get('staff_id')?.is_nullable === 'YES';
 
         const selectColumns = [
             'id',
@@ -2045,14 +2101,16 @@ const updateAppraisal = async (req, res) => {
 
             if (shouldResolveStaff) {
                 const resolvedStaffId = await resolveStaffIdForAppraisal(client, userIdChanged ? userId : targetUserId);
-                if (!resolvedStaffId) {
+                if (!resolvedStaffId && !staffIdNullable) {
                     await client.query('ROLLBACK');
                     return res.status(400).json({
                         error: 'Staff profile is required for this appraisal. Please create the staff profile first.'
                     });
                 }
-                updateFields.push(`staff_id = $${paramCount++}`);
-                updateValues.push(resolvedStaffId);
+                if (resolvedStaffId) {
+                    updateFields.push(`staff_id = $${paramCount++}`);
+                    updateValues.push(resolvedStaffId);
+                }
             }
         }
 

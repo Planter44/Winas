@@ -105,6 +105,26 @@ const shouldHideSoftSkill = (skill) => {
   return false;
 };
 
+const dedupeSoftSkills = (skills = []) => {
+  const seen = new Set();
+  return skills.filter((skill) => {
+    const name = (skill?.name || skill?.skill_name || '').trim().toLowerCase();
+    const desc = (skill?.description || '').trim().toLowerCase();
+    const key = `${name}|${desc}`.trim();
+
+    if (!name && !desc) {
+      const idKey = `id:${skill?.id ?? ''}`;
+      if (seen.has(idKey)) return false;
+      seen.add(idKey);
+      return true;
+    }
+
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const normalizePerformanceSectionsData = (data) => {
   if (!data) return null;
   try {
@@ -503,7 +523,8 @@ const PerformanceAppraisalForm = () => {
       ]);
 
       setPillars(pillarsRes.data);
-      setSoftSkills(softSkillsRes.data);
+      const dedupedSoftSkills = dedupeSoftSkills(softSkillsRes.data || []);
+      setSoftSkills(dedupedSoftSkills);
       setRatingKey(ratingKeyRes.data);
       const employeeList = canListTeam
         ? (employeesRes.data?.teamMembers || [])
@@ -538,7 +559,7 @@ const PerformanceAppraisalForm = () => {
       setKraScores(initialKraScores);
 
       // Initialize soft skill scores
-      const initialSoftSkillScores = (softSkillsRes.data || []).filter(skill => !shouldHideSoftSkill(skill)).map(skill => ({
+      const initialSoftSkillScores = (dedupedSoftSkills || []).filter(skill => !shouldHideSoftSkill(skill)).map(skill => ({
         softSkillId: skill.id,
         skillName: skill.name,
         description: skill.description,
