@@ -19,9 +19,9 @@ const getDashboardStats = async (req, res) => {
 
         if (currentUser.role_name === 'Staff') {
             const myLeaves = await db.query(
-                `SELECT COUNT(*) as pending, 
-                        SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) as approved,
-                        SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) as rejected
+                `SELECT COALESCE(SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END), 0) as pending, 
+                        COALESCE(SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END), 0) as approved,
+                        COALESCE(SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END), 0) as rejected
                  FROM leave_requests 
                  WHERE user_id = $1 AND EXTRACT(YEAR FROM created_at) = $2 AND deleted_at IS NULL`,
                 [currentUser.id, currentYear]

@@ -10,6 +10,7 @@ router.get('/', authenticateToken, settingsController.getAllSettings);
 router.get('/:key', authenticateToken, settingsController.getSettingByKey);
 router.post('/company-logo', authenticateToken, authorizeRoles('Super Admin'), logoUpload.single('logo'), settingsController.uploadCompanyLogo);
 router.delete('/company-logo', authenticateToken, authorizeRoles('Super Admin'), settingsController.deleteCompanyLogo);
+router.post('/reset-defaults', authenticateToken, authorizeRoles('Super Admin'), settingsController.resetSettingsToDefaults);
 router.post('/', authenticateToken, authorizeMinLevel(2), auditMiddleware('CREATE_SETTING', 'SystemSettings'), settingsController.createSetting);
 router.put('/bulk', authenticateToken, authorizeMinLevel(2), settingsController.bulkUpdateSettings);
 router.put('/:key', authenticateToken, authorizeMinLevel(2), auditMiddleware('UPDATE_SETTING', 'SystemSettings'), settingsController.updateSetting);

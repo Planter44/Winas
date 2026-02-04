@@ -1,8 +1,11 @@
 const db = require('../database/db');
 const { logAudit } = require('../middleware/audit');
 
+const normalizeRoleName = (role) => String(role || '').trim();
+const HR_ROLE_NAMES = new Set(['HR', 'HR Manager', 'Human Resource', 'Human Resources']);
+
 const isPrivilegedRole = (user) => {
-    const role = (user?.role_name || '').trim();
+    const role = normalizeRoleName(user?.role_name);
     return role === 'CEO' || role === 'HR' || role === 'Super Admin';
 };
 
@@ -15,6 +18,18 @@ const getUserMeta = async (client, userId) => {
         [userId]
     );
     return res.rows[0] || null;
+};
+
+const getUserRoleName = async (client, userId) => {
+    if (!userId) return null;
+    const res = await client.query(
+        `SELECT r.name as role_name
+         FROM users u
+         JOIN roles r ON u.role_id = r.id
+         WHERE u.id = $1 AND u.deleted_at IS NULL`,
+        [userId]
+    );
+    return res.rows[0]?.role_name || null;
 };
 
 const canAccessAppraisalForUserId = async (client, currentUser, appraisalUserId) => {
@@ -75,8 +90,8 @@ const resolveSupervisorStaffId = async (client, userId, fallbackStaffId) => {
 
     const supervisorUserId = meta.rows[0]?.supervisor_id || null;
     const deptId = meta.rows[0]?.department_id || null;
-    const roleName = (meta.rows[0]?.role_name || '').trim();
-    const roleNeedsCeo = ['HOD', 'HR', 'HR Manager', 'Human Resource', 'Human Resources'].includes(roleName);
+    const roleName = normalizeRoleName(meta.rows[0]?.role_name);
+    const roleNeedsCeo = roleName === 'HOD' || HR_ROLE_NAMES.has(roleName);
 
     // Follow leave approver rule: for Supervisors, their supervisor/approver is the HOD of their department.
     if (roleName.toLowerCase() === 'supervisor' && deptId) {
@@ -114,6 +129,55 @@ const resolveSupervisorStaffId = async (client, userId, fallbackStaffId) => {
     }
 
     return supervisorUserId || fallbackStaffId || null;
+};
+
+const resolveStaffIdForAppraisal = async (client, userId) => {
+    if (!userId) return null;
+
+    let foreignTable = null;
+    try {
+        const fkRes = await client.query(
+            `SELECT ccu.table_name AS foreign_table_name
+             FROM information_schema.table_constraints tc
+             JOIN information_schema.key_column_usage kcu
+               ON tc.constraint_name = kcu.constraint_name
+              AND tc.table_schema = kcu.table_schema
+             JOIN information_schema.constraint_column_usage ccu
+               ON ccu.constraint_name = tc.constraint_name
+              AND ccu.table_schema = tc.table_schema
+             WHERE tc.table_schema = 'public'
+               AND tc.table_name = 'performance_appraisals'
+               AND tc.constraint_type = 'FOREIGN KEY'
+               AND kcu.column_name = 'staff_id'
+             LIMIT 1`
+        );
+        foreignTable = fkRes.rows[0]?.foreign_table_name || null;
+    } catch (error) {
+        foreignTable = null;
+    }
+
+    const resolveStaffProfileId = async () => {
+        try {
+            const staffRes = await client.query(
+                `SELECT id FROM staff_profiles WHERE user_id = $1`,
+                [userId]
+            );
+            return staffRes.rows[0]?.id || null;
+        } catch (error) {
+            return null;
+        }
+    };
+
+    if (foreignTable === 'users') {
+        return userId;
+    }
+
+    if (foreignTable === 'staff_profiles') {
+        return await resolveStaffProfileId();
+    }
+
+    const staffId = await resolveStaffProfileId();
+    return staffId || userId;
 };
 
 const getPerformanceSectionScoreColumns = async (client) => {
@@ -688,6 +752,17 @@ const createAppraisal = async (req, res) => {
         const sectionBTotalNum = computeSectionBTotal({ kraScores, performanceSections, fallback: sectionBTotal });
         const sectionCTotalNum = computeSectionCTotal({ softSkillScores, fallback: sectionCTotal });
 
+        const resolvedStaffId = createAppraisalColumns.has('staff_id')
+            ? await resolveStaffIdForAppraisal(client, targetUserId)
+            : null;
+
+        if (createAppraisalColumns.has('staff_id') && !resolvedStaffId) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+                error: 'Staff profile is required for this appraisal. Please create the staff profile first.'
+            });
+        }
+
         let overallScore = Math.round(sectionBTotalNum + sectionCTotalNum);
         const incomingOverall = parseFloat(overallRating);
         if (Number.isFinite(incomingOverall) && incomingOverall) {
@@ -752,6 +827,10 @@ const createAppraisal = async (req, res) => {
             if (createAppraisalColumns.has('supervisor_id')) {
                 restoreFields.push(`supervisor_id = $${restoreParam++}`);
                 restoreValues.push(supervisorId);
+            }
+            if (createAppraisalColumns.has('staff_id')) {
+                restoreFields.push(`staff_id = $${restoreParam++}`);
+                restoreValues.push(resolvedStaffId);
             }
             if (createAppraisalColumns.has('user_id')) {
                 restoreFields.push(`user_id = $${restoreParam++}`);
@@ -906,6 +985,10 @@ const createAppraisal = async (req, res) => {
             if (createAppraisalColumns.has('supervisor_id')) {
                 cols.push('supervisor_id');
                 values.push(supervisorId);
+            }
+            if (createAppraisalColumns.has('staff_id')) {
+                cols.push('staff_id');
+                values.push(resolvedStaffId);
             }
             if (createAppraisalColumns.has('user_id')) {
                 cols.push('user_id');
@@ -1493,12 +1576,14 @@ const getAppraisalById = async (req, res) => {
         const appraisal = await db.query(
             `SELECT pa.*, 
                    u.email as user_email,
+                   r.name as role_name,
                    sp.first_name, sp.last_name, sp.employee_number, sp.job_title,
                    d.name as department_name,
                    sup.first_name as supervisor_first_name,
                    sup.last_name as supervisor_last_name
             FROM performance_appraisals pa
             JOIN users u ON pa.user_id = u.id
+            JOIN roles r ON u.role_id = r.id
             JOIN staff_profiles sp ON u.id = sp.user_id
             LEFT JOIN departments d ON u.department_id = d.id
             LEFT JOIN users sup_user ON pa.supervisor_id = sup_user.id
@@ -1793,6 +1878,18 @@ const updateAppraisal = async (req, res) => {
                 updateFields.push(`supervisor_id = $${paramCount++}`);
                 updateValues.push(resolvedSupervisorId);
             }
+        }
+
+        if (targetUserId && appraisalColumns.has('staff_id')) {
+            const resolvedStaffId = await resolveStaffIdForAppraisal(client, targetUserId);
+            if (!resolvedStaffId) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({
+                    error: 'Staff profile is required for this appraisal. Please create the staff profile first.'
+                });
+            }
+            updateFields.push(`staff_id = $${paramCount++}`);
+            updateValues.push(resolvedStaffId);
         }
 
         if (branchDepartment !== undefined && appraisalColumns.has('branch_department')) {

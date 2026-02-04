@@ -25,6 +25,89 @@ const getAllSettings = async (req, res) => {
     }
 };
 
+const resetSettingsToDefaults = async (req, res) => {
+    const client = await db.pool.connect();
+
+    const defaultSettings = {
+        primary_color: '#2563eb',
+        secondary_color: '#10b981',
+        sidebar_bg_color: '#ffffff',
+        header_bg_color: '#ffffff',
+        page_bg_color: '#f9fafb',
+        font_family: 'Inter',
+        sidebar_width: 'normal',
+        card_style: 'rounded',
+        dashboard_title: 'Dashboard',
+        leaves_title: 'Leave Management',
+        users_title: 'Users',
+        departments_title: 'Departments',
+        login_welcome_text: 'Welcome to HRMS',
+        login_subtitle: 'Sign in to your account',
+        company_name: 'Winas Sacco',
+        company_logo_url: '',
+        company_email: '',
+        company_phone: '',
+        company_address: ''
+    };
+
+    try {
+        await client.query('BEGIN');
+
+        const existingLogo = await client.query(
+            'SELECT setting_value FROM system_settings WHERE setting_key = $1',
+            ['company_logo_url']
+        );
+
+        const logoUrl = existingLogo.rows[0]?.setting_value;
+        if (logoUrl) {
+            if (isCloudinaryConfigured()) {
+                try {
+                    const folder = process.env.CLOUDINARY_LOGO_FOLDER || process.env.CLOUDINARY_FOLDER || 'winas-hrms/company-logo';
+                    await cloudinary.uploader.destroy(`${folder}/company-logo`, { invalidate: true, resource_type: 'image' });
+                } catch (e) {
+                    console.error('Cloudinary logo delete error:', e);
+                }
+            } else if (String(logoUrl).startsWith('/uploads/logos/')) {
+                const fileName = path.basename(String(logoUrl));
+                const filePath = path.join(__dirname, '../../uploads/logos', fileName);
+                try {
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                    }
+                } catch (e) {
+                    console.error('Local logo delete error:', e);
+                }
+            }
+        }
+
+        const keys = Object.keys(defaultSettings);
+        for (const key of keys) {
+            await client.query(
+                `INSERT INTO system_settings (setting_key, setting_value, setting_type, is_public, updated_by)
+                 VALUES ($1, $2, 'string', true, $3)
+                 ON CONFLICT (setting_key)
+                 DO UPDATE SET setting_value = EXCLUDED.setting_value,
+                               is_public = true,
+                               updated_by = EXCLUDED.updated_by,
+                               updated_at = CURRENT_TIMESTAMP`,
+                [key, defaultSettings[key], req.user.id]
+            );
+        }
+
+        await client.query('COMMIT');
+
+        await logAudit(req.user.id, 'RESET_SETTINGS_DEFAULTS', 'SystemSettings', null, { keys }, req);
+
+        res.json({ message: 'Settings reset to defaults successfully' });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Reset settings to defaults error:', error);
+        res.status(500).json({ error: 'Failed to reset settings to defaults' });
+    } finally {
+        client.release();
+    }
+};
+
 const getPublicSettings = async (req, res) => {
     req.query.isPublic = 'true';
     return getAllSettings(req, res);
@@ -313,6 +396,7 @@ module.exports = {
     createSetting,
     uploadCompanyLogo,
     deleteCompanyLogo,
+    resetSettingsToDefaults,
     deleteSetting,
     bulkUpdateSettings
 };

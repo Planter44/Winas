@@ -38,20 +38,43 @@ const Profile = () => {
     setMessage({ type: '', text: '' });
 
     try {
-      const res = await authAPI.updateProfile({
-        phone: profile.phone,
-        address: profile.address,
-        city: profile.city,
-        emergencyContactName: profile.emergency_contact_name,
-        emergencyContactPhone: profile.emergency_contact_phone,
-        nextOfKinName: profile.next_of_kin_name,
-        nextOfKinPhone: profile.next_of_kin_phone,
-        nextOfKinIdNumber: profile.next_of_kin_id_number,
-        nextOfKinRelationship: profile.next_of_kin_relationship
-      });
+      const payload = {
+        firstName: profile.first_name || null,
+        lastName: profile.last_name || null,
+        middleName: profile.middle_name || null,
+        employeeNumber: profile.employee_number || null,
+        nationalId: profile.national_id || null,
+        secondaryPhone: profile.secondary_phone || null,
+        kraPin: profile.kra_pin || null,
+        educationLevel: profile.education_level || null,
+        dateOfBirth: profile.date_of_birth || null,
+        gender: profile.gender || null,
+        maritalStatus: profile.marital_status || null,
+        dateJoined: profile.date_joined || null,
+        jobTitle: profile.job_title || null,
+        phone: profile.phone || null,
+        address: profile.address || null,
+        city: profile.city || null,
+        emergencyContactName: profile.emergency_contact_name || null,
+        emergencyContactPhone: profile.emergency_contact_phone || null,
+        nextOfKinName: profile.next_of_kin_name || null,
+        nextOfKinPhone: profile.next_of_kin_phone || null,
+        nextOfKinIdNumber: profile.next_of_kin_id_number || null,
+        nextOfKinRelationship: profile.next_of_kin_relationship || null
+      };
+
+      const res = await authAPI.updateProfile(payload);
 
       if (res.data?.profile) {
         setProfile(res.data.profile);
+
+        updateUser({
+          ...user,
+          firstName: res.data.profile.first_name,
+          lastName: res.data.profile.last_name,
+          employeeNumber: res.data.profile.employee_number,
+          jobTitle: res.data.profile.job_title
+        });
       } else {
         fetchProfile();
       }
@@ -167,7 +190,7 @@ const Profile = () => {
                     <Mail className="mr-2" size={16} />
                     Email
                   </label>
-                  <p className="text-gray-900">{profile?.email}</p>
+                  <p className="text-gray-900 break-all">{profile?.email}</p>
                 </div>
 
                 <div>
@@ -193,6 +216,162 @@ const Profile = () => {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 mt-6">Contact Information</h3>
                 
                 <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        First Name
+                      </label>
+                      <input
+                        type="text"
+                        value={profile?.first_name || ''}
+                        onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
+                        className="input-field"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Last Name
+                      </label>
+                      <input
+                        type="text"
+                        value={profile?.last_name || ''}
+                        onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
+                        className="input-field"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Middle Name
+                      </label>
+                      <input
+                        type="text"
+                        value={profile?.middle_name || ''}
+                        onChange={(e) => setProfile({ ...profile, middle_name: e.target.value })}
+                        className="input-field"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Employee Number
+                      </label>
+                      <input
+                        type="text"
+                        value={profile?.employee_number || ''}
+                        onChange={(e) => setProfile({ ...profile, employee_number: e.target.value })}
+                        className="input-field"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        National ID
+                      </label>
+                      <input
+                        type="text"
+                        value={profile?.national_id || ''}
+                        onChange={(e) => setProfile({ ...profile, national_id: e.target.value })}
+                        className="input-field"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        KRA PIN
+                      </label>
+                      <input
+                        type="text"
+                        value={profile?.kra_pin || ''}
+                        onChange={(e) => setProfile({ ...profile, kra_pin: e.target.value })}
+                        className="input-field"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Education Level
+                      </label>
+                      <input
+                        type="text"
+                        value={profile?.education_level || ''}
+                        onChange={(e) => setProfile({ ...profile, education_level: e.target.value })}
+                        className="input-field"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Date of Birth
+                      </label>
+                      <input
+                        type="date"
+                        value={profile?.date_of_birth ? String(profile.date_of_birth).slice(0, 10) : ''}
+                        onChange={(e) => setProfile({ ...profile, date_of_birth: e.target.value })}
+                        className="input-field"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Gender
+                      </label>
+                      <select
+                        value={profile?.gender || ''}
+                        onChange={(e) => setProfile({ ...profile, gender: e.target.value })}
+                        className="input-field"
+                      >
+                        <option value="">Select Gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Marital Status
+                      </label>
+                      <select
+                        value={profile?.marital_status || ''}
+                        onChange={(e) => setProfile({ ...profile, marital_status: e.target.value })}
+                        className="input-field"
+                      >
+                        <option value="">Select Status</option>
+                        <option value="Single">Single</option>
+                        <option value="Married">Married</option>
+                        <option value="Divorced">Divorced</option>
+                        <option value="Widowed">Widowed</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Date Joined
+                      </label>
+                      <input
+                        type="date"
+                        value={profile?.date_joined ? String(profile.date_joined).slice(0, 10) : ''}
+                        onChange={(e) => setProfile({ ...profile, date_joined: e.target.value })}
+                        className="input-field"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Job Title
+                      </label>
+                      <input
+                        type="text"
+                        value={profile?.job_title || ''}
+                        onChange={(e) => setProfile({ ...profile, job_title: e.target.value })}
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Phone Number
@@ -201,6 +380,19 @@ const Profile = () => {
                       type="tel"
                       value={profile?.phone || ''}
                       onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                      className="input-field"
+                      placeholder="+254700000000"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Secondary Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={profile?.secondary_phone || ''}
+                      onChange={(e) => setProfile({ ...profile, secondary_phone: e.target.value })}
                       className="input-field"
                       placeholder="+254700000000"
                     />

@@ -427,12 +427,12 @@ const Dashboard = () => {
                 </a>
 
                 <a
-                  href="/appraisals"
+                  href="/performance-appraisals"
                   className="flex items-center p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors"
                 >
                   <Award className="mr-2 sm:mr-3 text-primary-600 flex-shrink-0" size={22} />
                   <div className="min-w-0">
-                    <p className="font-medium text-gray-900 text-sm sm:text-base">Appraisals</p>
+                    <p className="font-medium text-gray-900 text-sm sm:text-base">Performance Appraisals</p>
                     <p className="text-xs sm:text-sm text-gray-600 truncate">Performance reviews</p>
                   </div>
                 </a>
@@ -473,7 +473,7 @@ const Dashboard = () => {
                 </a>
 
                 <a
-                  href="/appraisals"
+                  href="/performance-appraisals"
                   className="flex items-center p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors"
                 >
                   <Award className="mr-2 sm:mr-3 text-primary-600 flex-shrink-0" size={22} />

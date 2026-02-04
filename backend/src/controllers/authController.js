@@ -158,6 +158,12 @@ const updateProfile = async (req, res) => {
     try {
         const userId = req.user.id;
         const {
+            firstName,
+            lastName,
+            middleName,
+            employeeNumber,
+            jobTitle,
+            dateJoined,
             phone,
             secondaryPhone,
             nationalId,
@@ -184,10 +190,10 @@ const updateProfile = async (req, res) => {
              ON CONFLICT (user_id) DO NOTHING`,
             [
                 userId,
-                req.user.first_name || '',
-                req.user.last_name || '',
-                req.user.employee_number || null,
-                req.user.job_title || null
+                firstName ?? req.user.first_name ?? '',
+                lastName ?? req.user.last_name ?? '',
+                employeeNumber ?? req.user.employee_number ?? null,
+                jobTitle ?? req.user.job_title ?? null
             ]
         );
 
@@ -195,6 +201,30 @@ const updateProfile = async (req, res) => {
         const values = [];
         let paramCount = 1;
 
+        if (firstName !== undefined) {
+            fields.push(`first_name = $${paramCount++}`);
+            values.push(firstName);
+        }
+        if (lastName !== undefined) {
+            fields.push(`last_name = $${paramCount++}`);
+            values.push(lastName);
+        }
+        if (middleName !== undefined) {
+            fields.push(`middle_name = $${paramCount++}`);
+            values.push(middleName);
+        }
+        if (employeeNumber !== undefined) {
+            fields.push(`employee_number = $${paramCount++}`);
+            values.push(employeeNumber);
+        }
+        if (jobTitle !== undefined) {
+            fields.push(`job_title = $${paramCount++}`);
+            values.push(jobTitle);
+        }
+        if (dateJoined !== undefined) {
+            fields.push(`date_joined = $${paramCount++}`);
+            values.push(dateJoined);
+        }
         if (phone !== undefined) {
             fields.push(`phone = $${paramCount++}`);
             values.push(phone);
@@ -294,6 +324,20 @@ const updateProfile = async (req, res) => {
     } catch (error) {
         await client.query('ROLLBACK');
         console.error('Update profile error:', error);
+
+        if (error?.code === '23505') {
+            const constraint = String(error?.constraint || '').toLowerCase();
+
+            if (constraint.includes('employee_number')) {
+                return res.status(400).json({ error: 'Employee number is already in use' });
+            }
+            if (constraint.includes('national_id')) {
+                return res.status(400).json({ error: 'National ID is already in use' });
+            }
+
+            return res.status(400).json({ error: 'One of the provided values is already in use' });
+        }
+
         res.status(500).json({ error: 'Failed to update profile' });
     } finally {
         client.release();

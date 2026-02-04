@@ -14,6 +14,7 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [resettingDefaults, setResettingDefaults] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [companyLogoUrl, setCompanyLogoUrl] = useState('');
   const [logoFile, setLogoFile] = useState(null);
@@ -106,6 +107,28 @@ const Settings = () => {
       console.error('Failed to fetch data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetDefaults = async () => {
+    const ok = window.confirm('Reset all settings to default values? This will also remove the uploaded company logo.');
+    if (!ok) return;
+
+    setResettingDefaults(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      await settingsAPI.resetDefaults();
+      refreshSettings();
+      fetchData();
+      setMessage({ type: 'success', text: 'Settings reset to defaults successfully!' });
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.error || 'Failed to reset settings to defaults'
+      });
+    } finally {
+      setResettingDefaults(false);
     }
   };
 
@@ -541,6 +564,18 @@ const Settings = () => {
                         </button>
                         <p className="text-xs text-gray-500 mt-2">Max 5MB. JPG/PNG/GIF/WEBP/SVG.</p>
                       </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <button
+                        type="button"
+                        onClick={handleResetDefaults}
+                        disabled={resettingDefaults}
+                        className="btn-secondary w-full flex items-center justify-center disabled:opacity-50"
+                      >
+                        <Trash2 className="mr-2" size={18} />
+                        {resettingDefaults ? 'Resetting...' : 'Reset All Settings To Default'}
+                      </button>
                     </div>
                   </div>
 

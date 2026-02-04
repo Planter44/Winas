@@ -16,9 +16,6 @@ const Leaves = lazy(() => import('./pages/Leaves'));
 const LeaveForm = lazy(() => import('./pages/LeaveForm'));
 const LeaveEdit = lazy(() => import('./pages/LeaveEdit'));
 const LeaveDetails = lazy(() => import('./pages/LeaveDetails'));
-const Appraisals = lazy(() => import('./pages/Appraisals'));
-const AppraisalForm = lazy(() => import('./pages/AppraisalForm'));
-const AppraisalDetails = lazy(() => import('./pages/AppraisalDetails'));
 const PerformanceAppraisals = lazy(() => import('./pages/PerformanceAppraisals'));
 const PerformanceAppraisalForm = lazy(() => import('./pages/PerformanceAppraisalForm'));
 const PerformanceAppraisalDetails = lazy(() => import('./pages/PerformanceAppraisalDetails'));
@@ -58,10 +55,8 @@ function App() {
               <Route path="/leaves/:id/edit" element={<ProtectedRoute><LeaveEdit /></ProtectedRoute>} />
               <Route path="/leaves/:id" element={<ProtectedRoute><LeaveDetails /></ProtectedRoute>} />
               
-              <Route path="/appraisals" element={<ProtectedRoute><Appraisals /></ProtectedRoute>} />
-              <Route path="/appraisals/new" element={<ProtectedRoute minLevel={5}><AppraisalForm /></ProtectedRoute>} />
-              <Route path="/appraisals/:id" element={<ProtectedRoute><AppraisalDetails /></ProtectedRoute>} />
-              <Route path="/appraisals/:id/edit" element={<ProtectedRoute minLevel={5}><AppraisalForm /></ProtectedRoute>} />
+              <Route path="/appraisals" element={<Navigate to="/performance-appraisals" replace />} />
+              <Route path="/appraisals/*" element={<Navigate to="/performance-appraisals" replace />} />
               
               <Route path="/performance-appraisals" element={<ProtectedRoute><PerformanceAppraisals /></ProtectedRoute>} />
               <Route path="/performance-appraisals/new" element={<ProtectedRoute roles={['HOD', 'HR', 'CEO', 'Super Admin']}><PerformanceAppraisalForm /></ProtectedRoute>} />

@@ -397,23 +397,33 @@ const PerformanceAppraisalForm = () => {
     hr: '',
     ceo: ''
   });
+  const [appraiseeRoleName, setAppraiseeRoleName] = useState('');
 
-  const isPrivileged = hasRole('CEO') || hasRole('HR') || hasRole('Super Admin');
+  const isCeo = hasRole('CEO');
+  const isSuperAdmin = hasRole('Super Admin');
+  const isPrivileged = isCeo || hasRole('HR') || isSuperAdmin;
   const isHod = hasRole('HOD');
   const effectiveOwnerId = isEdit ? (appraisalOwnerId ?? employeeData.userId) : employeeData.userId;
   const isOwnAppraisal = effectiveOwnerId && user?.id && String(user.id) === String(effectiveOwnerId);
+  const allowOwnEdits = !isOwnAppraisal || isCeo;
 
-  const canEditEmployeeDetails = !isEdit && (hasRole('HOD') || hasRole('HR') || hasRole('CEO') || hasRole('Super Admin'));
-  const canEditSectionB = isPrivileged || isHod || isOwnAppraisal;
-  const canEditSectionC = isPrivileged || isHod || (hasRole('Supervisor') && !isOwnAppraisal);
-  const canEditCourses = isPrivileged || isHod || isOwnAppraisal;
-  const canEditDevelopmentPlans = isPrivileged || isHod || isOwnAppraisal;
+  const normalizedAppraiseeRole = String(appraiseeRoleName || '').trim().toLowerCase();
+  const isHodAppraisee = normalizedAppraiseeRole === 'hod';
+  const isHrAppraisee = ['hr', 'hr manager', 'human resource', 'human resources'].includes(normalizedAppraiseeRole);
+  const resolvedHodComments = isHodAppraisee ? 'Not Applicable' : comments.hod;
+  const resolvedHrComments = isHrAppraisee ? 'Not Applicable' : comments.hr;
 
-  const canEditAppraiseeComments = isPrivileged || isOwnAppraisal;
-  const canEditAppraiserComments = isPrivileged || isHod || (hasRole('Supervisor') && !isOwnAppraisal);
-  const canEditHodComments = isPrivileged || hasRole('HOD');
-  const canEditHrComments = isPrivileged || hasRole('HR');
-  const canEditCeoComments = isPrivileged || hasRole('CEO');
+  const canEditEmployeeDetails = (hasRole('HOD') || hasRole('HR') || isCeo || isSuperAdmin) && (!isEdit || allowOwnEdits);
+  const canEditSectionB = (isPrivileged || isHod) && allowOwnEdits;
+  const canEditSectionC = (isPrivileged || isHod || (hasRole('Supervisor') && !isOwnAppraisal)) && allowOwnEdits;
+  const canEditCourses = (isPrivileged || isHod) && allowOwnEdits;
+  const canEditDevelopmentPlans = (isPrivileged || isHod) && allowOwnEdits;
+
+  const canEditAppraiseeComments = isOwnAppraisal || isCeo;
+  const canEditAppraiserComments = (isPrivileged || isHod || (hasRole('Supervisor') && !isOwnAppraisal)) && allowOwnEdits;
+  const canEditHodComments = (isCeo || hasRole('HOD')) && allowOwnEdits && !isHodAppraisee;
+  const canEditHrComments = (isCeo || hasRole('HR')) && allowOwnEdits && !isHrAppraisee;
+  const canEditCeoComments = isCeo;
 
   useEffect(() => {
     fetchInitialData();
@@ -478,9 +488,12 @@ const PerformanceAppraisalForm = () => {
       setLoading(true);
       
       // Fetch all required data in parallel
-      const employeesPromise = (hasRole('HOD') || hasRole('Supervisor'))
+      const canListAllUsers = hasRole('HR') || hasRole('CEO') || hasRole('Super Admin');
+      const canListTeam = hasRole('HOD') || hasRole('Supervisor');
+
+      const employeesPromise = canListTeam
         ? teamAPI.getMyTeam()
-        : userAPI.getAll({ limit: 500 });
+        : (canListAllUsers ? userAPI.getAll({ limit: 500 }) : Promise.resolve({ data: { users: [] } }));
 
       const [pillarsRes, softSkillsRes, ratingKeyRes, employeesRes] = await Promise.all([
         performanceAppraisalAPI.getPillars(),
@@ -492,7 +505,7 @@ const PerformanceAppraisalForm = () => {
       setPillars(pillarsRes.data);
       setSoftSkills(softSkillsRes.data);
       setRatingKey(ratingKeyRes.data);
-      const employeeList = (hasRole('HOD') || hasRole('Supervisor'))
+      const employeeList = canListTeam
         ? (employeesRes.data?.teamMembers || [])
         : (employeesRes.data?.users || employeesRes.data);
       setEmployees(employeeList);
@@ -542,6 +555,7 @@ const PerformanceAppraisalForm = () => {
         const appraisal = appraisalRes.data;
 
         setAppraisalOwnerId(appraisal?.user_id || null);
+        setAppraiseeRoleName(appraisal?.role_name || '');
         
         setEmployeeData({
           userId: appraisal.user_id,
@@ -688,9 +702,24 @@ const PerformanceAppraisalForm = () => {
           position: selectedEmployee.job_title || '',
           pfNumber: selectedEmployee.employee_number || ''
         }));
+        setAppraiseeRoleName(selectedEmployee.role_name || '');
       }
+    } else if (name === 'userId') {
+      setAppraiseeRoleName('');
     }
   };
+
+  useEffect(() => {
+    if (!employeeData.userId) {
+      if (appraiseeRoleName) setAppraiseeRoleName('');
+      return;
+    }
+
+    const selectedEmployee = employees.find(emp => emp.id === parseInt(employeeData.userId));
+    if (selectedEmployee?.role_name && selectedEmployee.role_name !== appraiseeRoleName) {
+      setAppraiseeRoleName(selectedEmployee.role_name);
+    }
+  }, [employeeData.userId, employees, appraiseeRoleName]);
 
   const handleKraScoreChange = (index, field, value) => {
     setKraScores(prev => {
@@ -1440,8 +1469,8 @@ const PerformanceAppraisalForm = () => {
         developmentPlans: developmentPlans.filter(p => p.description),
         appraiseeComments: comments.appraisee,
         appraiserComments: comments.appraiser,
-        hodComments: comments.hod,
-        hrComments: comments.hr,
+        hodComments: resolvedHodComments,
+        hrComments: resolvedHrComments,
         ceoComments: comments.ceo
       };
 
@@ -2345,7 +2374,7 @@ const PerformanceAppraisalForm = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">HOD Comments</label>
                   <textarea
-                    value={comments.hod}
+                    value={resolvedHodComments}
                     onChange={(e) => {
                       e.target.style.height = 'auto';
                       e.target.style.height = e.target.scrollHeight + 'px';
@@ -2361,7 +2390,7 @@ const PerformanceAppraisalForm = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">HR Comments</label>
                   <textarea
-                    value={comments.hr}
+                    value={resolvedHrComments}
                     onChange={(e) => {
                       e.target.style.height = 'auto';
                       e.target.style.height = e.target.scrollHeight + 'px';
