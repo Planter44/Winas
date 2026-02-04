@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
@@ -41,6 +41,26 @@ const Dashboard = () => {
     return currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
 
+  const cardBackgrounds = useMemo(() => {
+    const themes = [
+      'bg-gradient-to-br from-slate-50 via-white to-slate-100 border-slate-200',
+      'bg-gradient-to-br from-sky-50 via-white to-sky-100 border-sky-200',
+      'bg-gradient-to-br from-emerald-50 via-white to-emerald-100 border-emerald-200',
+      'bg-gradient-to-br from-amber-50 via-white to-amber-100 border-amber-200',
+      'bg-gradient-to-br from-rose-50 via-white to-rose-100 border-rose-200',
+      'bg-gradient-to-br from-teal-50 via-white to-teal-100 border-teal-200',
+      'bg-gradient-to-br from-indigo-50 via-white to-indigo-100 border-indigo-200',
+      'bg-gradient-to-br from-orange-50 via-white to-orange-100 border-orange-200'
+    ];
+
+    return themes
+      .map((theme) => ({ theme, sort: Math.random() }))
+      .sort((a, b) => a.sort - b.sort)
+      .map(({ theme }) => theme);
+  }, []);
+
+  const getCardBackground = (index) => cardBackgrounds[index % cardBackgrounds.length];
+
   useEffect(() => {
     fetchStats();
   }, []);
@@ -68,7 +88,7 @@ const Dashboard = () => {
 
   const renderStaffDashboard = () => (
     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-      <div className="card">
+      <div className={`card ${getCardBackground(0)}`}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Pending Leaves</p>
@@ -80,7 +100,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="card">
+      <div className={`card ${getCardBackground(1)}`}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Approved Leaves</p>
@@ -92,7 +112,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="card">
+      <div className={`card ${getCardBackground(2)}`}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Rejected Leaves</p>
@@ -106,7 +126,7 @@ const Dashboard = () => {
 
       <Link
         to="/performance-appraisals?scope=mine"
-        className="card hover:bg-primary-50 transition-colors"
+        className={`card ${getCardBackground(3)} hover:shadow-md transition-shadow`}
       >
         <div className="flex items-center justify-between">
           <div>
@@ -123,7 +143,7 @@ const Dashboard = () => {
 
   const renderSupervisorDashboard = () => (
     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-      <div className="card">
+      <div className={`card ${getCardBackground(0)}`}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Pending Approvals</p>
@@ -135,7 +155,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="card">
+      <div className={`card ${getCardBackground(1)}`}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Team Size</p>
@@ -147,7 +167,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="card">
+      <div className={`card ${getCardBackground(2)}`}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Total Departments</p>
@@ -163,7 +183,7 @@ const Dashboard = () => {
 
   const renderHODDashboard = () => (
     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-      <div className="card bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
+      <div className={`card ${getCardBackground(0)}`}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-indigo-700 mb-1 font-medium">Department Staff</p>
@@ -175,7 +195,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="card bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
+      <div className={`card ${getCardBackground(1)}`}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-yellow-700 mb-1 font-medium">Pending Leaves</p>
@@ -187,7 +207,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="card bg-gradient-to-br from-pink-50 to-pink-100 border-pink-200">
+      <div className={`card ${getCardBackground(2)}`}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-pink-700 mb-1 font-medium">Total Departments</p>
@@ -204,7 +224,7 @@ const Dashboard = () => {
   const renderHRDashboard = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-        <div className="card">
+        <div className={`card ${getCardBackground(0)}`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Users</p>
@@ -214,7 +234,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="card">
+        <div className={`card ${getCardBackground(1)}`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Pending HR Approval</p>
@@ -226,7 +246,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="card">
+        <div className={`card ${getCardBackground(2)}`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Approved Leaves</p>
@@ -238,19 +258,22 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="card">
+        <div className={`card ${getCardBackground(3)}`}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Finalized Appraisals</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {stats?.performanceAppraisalStats?.finalized || 0}
+              <p className="text-sm text-gray-600 mb-1">Rejected Leaves</p>
+              <p className="text-2xl font-bold text-red-600">
+                {stats?.leaveStats?.rejected || 0}
               </p>
             </div>
-            <Award className="text-primary-500" size={32} />
+            <XCircle className="text-red-500" size={32} />
           </div>
         </div>
 
-        <Link to="/performance-appraisals?group=pending_review" className="card hover:bg-yellow-50 transition-colors">
+        <Link
+          to="/performance-appraisals?group=pending_review"
+          className={`card ${getCardBackground(4)} hover:shadow-md transition-shadow`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Performance Pending Review</p>
@@ -262,7 +285,10 @@ const Dashboard = () => {
           </div>
         </Link>
 
-        <Link to="/performance-appraisals?group=finalized" className="card hover:bg-green-50 transition-colors">
+        <Link
+          to="/performance-appraisals?group=finalized"
+          className={`card ${getCardBackground(5)} hover:shadow-md transition-shadow`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Performance Finalized</p>
@@ -280,7 +306,7 @@ const Dashboard = () => {
   const renderAdminDashboard = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-        <div className="card bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+        <div className={`card ${getCardBackground(0)}`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-700 mb-1 font-medium">Total Users</p>
@@ -290,7 +316,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="card bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+        <div className={`card ${getCardBackground(1)}`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-purple-700 mb-1 font-medium">Departments</p>
@@ -300,7 +326,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="card bg-gradient-to-br from-rose-50 to-rose-100 border-rose-200">
+        <div className={`card ${getCardBackground(2)}`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-rose-700 mb-1 font-medium">Total Leaves</p>
@@ -312,7 +338,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="card bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+        <div className={`card ${getCardBackground(3)}`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-green-700 mb-1 font-medium">Avg Performance</p>
@@ -329,7 +355,10 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-        <Link to="/performance-appraisals?group=pending_review" className="card bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200 hover:border-yellow-300 transition-colors">
+        <Link
+          to="/performance-appraisals?group=pending_review"
+          className={`card ${getCardBackground(4)} hover:shadow-md transition-shadow`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-yellow-700 mb-1 font-medium">Performance Pending Review</p>
@@ -341,7 +370,10 @@ const Dashboard = () => {
           </div>
         </Link>
 
-        <Link to="/performance-appraisals?group=finalized" className="card bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 hover:border-emerald-300 transition-colors">
+        <Link
+          to="/performance-appraisals?group=finalized"
+          className={`card ${getCardBackground(5)} hover:shadow-md transition-shadow`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-emerald-700 mb-1 font-medium">Performance Finalized</p>
@@ -355,7 +387,7 @@ const Dashboard = () => {
       </div>
 
       {stats?.departmentBreakdown && stats.departmentBreakdown.length > 0 && (
-        <div className="card">
+        <div className={`card ${getCardBackground(6)}`}>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Department Overview</h3>
           <div className="space-y-3">
             {stats.departmentBreakdown.map((dept) => (
@@ -391,7 +423,7 @@ const Dashboard = () => {
       {(user?.role === 'CEO' || user?.role === 'Super Admin') && renderAdminDashboard()}
 
       <div className="mt-8">
-        <div className="card">
+        <div className={`card ${getCardBackground(7)}`}>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
             {(user?.role === 'CEO' || user?.role === 'Super Admin') ? (

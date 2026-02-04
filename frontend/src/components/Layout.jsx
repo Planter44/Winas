@@ -86,6 +86,7 @@ const Layout = ({ children }) => {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, show: true },
+    { name: 'My Profile', href: '/profile', icon: User, show: true },
     { name: 'Users', href: '/users', icon: Users, show: ['Super Admin', 'CEO', 'HR'].includes(user?.role) },
     { name: 'My Team', href: '/my-team', icon: Users, show: ['HOD', 'Supervisor', 'HR', 'CEO'].includes(user?.role) },
     { name: 'Leave Management', href: '/leaves', icon: Calendar, show: true, badge: pendingLeaveCount },
@@ -99,19 +100,23 @@ const Layout = ({ children }) => {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: pageBgColor }}>
-      <div className="md:hidden fixed top-0 left-0 right-0 border-b border-gray-200 z-50" style={{ backgroundColor: headerBgColor }}>
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center space-x-2">
+      <div className="md:hidden fixed top-0 left-0 right-0 border-b border-gray-200 z-50 h-14" style={{ backgroundColor: headerBgColor }}>
+        <div className="flex items-center justify-between h-full px-4">
+          <Link
+            to="/dashboard"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center space-x-2 min-w-0"
+          >
             {resolvedLogoUrl ? (
               <img src={resolvedLogoUrl} alt={companyName} className="h-8 w-8 object-contain" />
             ) : (
               <Building2 size={20} className="text-primary-600" />
             )}
-            <h1 className="text-xl font-bold text-primary-600">{companyName}</h1>
-          </div>
+            <h1 className="text-lg font-bold text-primary-600 truncate">{companyName}</h1>
+          </Link>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 relative"
+            className="h-10 w-10 inline-flex items-center justify-center rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 relative"
           >
             {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
             {pendingLeaveCount > 0 && !sidebarOpen && (
@@ -244,7 +249,7 @@ const Layout = ({ children }) => {
           </div>
         </header>
 
-        <main className="p-4 md:p-8 mt-16 md:mt-0">{children}</main>
+        <main className="p-4 md:p-8 mt-14 md:mt-0">{children}</main>
       </div>
     </div>
   );
