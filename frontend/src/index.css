@@ -125,6 +125,7 @@ body {
   }
 
   .hamburger--stacked {
+    flex-direction: column;
     gap: 6px;
   }
 
