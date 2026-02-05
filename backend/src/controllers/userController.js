@@ -175,7 +175,7 @@ const updateUser = async (req, res) => {
     try {
         const { id } = req.params;
         const {
-            roleId, departmentId, supervisorId, isActive,
+            email, roleId, departmentId, supervisorId, isActive,
             firstName, lastName, middleName, employeeNumber, nationalId,
             phone, secondaryPhone, kraPin, educationLevel,
             dateOfBirth, gender, maritalStatus, address, city,
@@ -186,13 +186,38 @@ const updateUser = async (req, res) => {
 
         await client.query('BEGIN');
 
-        if (roleId !== undefined || departmentId !== undefined || 
+        const normalizedEmail = email !== undefined && email !== null
+            ? String(email).trim().toLowerCase()
+            : undefined;
+
+        if (normalizedEmail !== undefined) {
+            if (!normalizedEmail) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: 'Email is required' });
+            }
+
+            const existingEmail = await client.query(
+                'SELECT id FROM users WHERE LOWER(TRIM(email)) = $1 AND id <> $2 AND deleted_at IS NULL',
+                [normalizedEmail, id]
+            );
+
+            if (existingEmail.rows.length > 0) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: 'Email is already in use' });
+            }
+        }
+
+        if (normalizedEmail !== undefined || roleId !== undefined || departmentId !== undefined || 
             supervisorId !== undefined || isActive !== undefined) {
             
             const updateFields = [];
             const updateValues = [];
             let paramCount = 1;
 
+            if (normalizedEmail !== undefined) {
+                updateFields.push(`email = $${paramCount++}`);
+                updateValues.push(normalizedEmail);
+            }
             if (roleId !== undefined) {
                 updateFields.push(`role_id = $${paramCount++}`);
                 updateValues.push(roleId);

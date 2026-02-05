@@ -46,6 +46,21 @@ body {
   }
 }
 
+@keyframes menu-drop-fancy {
+  0% {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.98);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(4px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @layer components {
   .btn-primary, .btn-secondary {
     @apply px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium transition-colors duration-200;
@@ -109,6 +124,10 @@ body {
     align-self: flex-end;
   }
 
+  .hamburger--drop .hamburger-line {
+    transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease, width 0.2s ease;
+  }
+
   .hamburger--bold .hamburger-line {
     width: 26px;
     height: 3px;
@@ -128,6 +147,10 @@ body {
 
   .animate-menu-drop {
     animation: menu-drop 0.25s ease-out;
+  }
+
+  .animate-menu-drop-fancy {
+    animation: menu-drop-fancy 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .badge {

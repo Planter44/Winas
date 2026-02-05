@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
-import { leaveAPI, messageAPI, settingsAPI } from '../services/api';
+import { leaveAPI, messageAPI } from '../services/api';
 import {
   LayoutDashboard,
   Users,
@@ -18,25 +18,27 @@ import {
 
 const Layout = ({ children }) => {
   const { user, logout, hasMinLevel } = useAuth();
-  const { getSetting, refreshSettings } = useSettings();
+  const { getSetting } = useSettings();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
-  const [themeSaving, setThemeSaving] = useState(false);
   
   const companyName = getSetting('company_name', 'Winas Sacco');
   const companyLogoUrl = getSetting('company_logo_url', '');
   const footerEnabled = String(getSetting('footer_enabled', 'true')).toLowerCase() !== 'false';
   const footerContent = getSetting('footer_content', '© 2024 Winas Sacco. All rights reserved.');
-  const themeMode = getSetting('theme_mode', 'light');
   const hamburgerStyle = getSetting('hamburger_style', 'classic');
-  const hamburgerStyleClass = hamburgerStyle === 'bold'
-    ? 'hamburger--bold'
-    : hamburgerStyle === 'minimal'
-      ? 'hamburger--minimal'
-      : 'hamburger--classic';
+  const hamburgerStyleClass = {
+    bold: 'hamburger--bold',
+    minimal: 'hamburger--minimal',
+    drop: 'hamburger--drop',
+    classic: 'hamburger--classic'
+  }[hamburgerStyle] || 'hamburger--classic';
+  const menuDropClass = sidebarOpen
+    ? (hamburgerStyle === 'drop' ? 'animate-menu-drop-fancy md:animate-none' : 'animate-menu-drop md:animate-none')
+    : '';
 
   const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
   const API_ORIGIN = API_BASE.replace(/\/?api$/, '');
@@ -85,21 +87,6 @@ const Layout = ({ children }) => {
       setUnreadMessageCount(response.data.unreadCount || 0);
     } catch (error) {
       console.error('Failed to fetch unread messages:', error);
-    }
-  };
-
-  const handleThemeChange = async (event) => {
-    const nextMode = event.target.value;
-    setThemeSaving(true);
-    try {
-      await settingsAPI.bulkUpdate({
-        settings: [{ key: 'theme_mode', value: nextMode }]
-      });
-      refreshSettings();
-    } catch (error) {
-      console.error('Failed to update theme mode:', error);
-    } finally {
-      setThemeSaving(false);
     }
   };
 
@@ -157,7 +144,7 @@ const Layout = ({ children }) => {
         } md:translate-x-0`}
         style={{ backgroundColor: 'var(--color-sidebar-bg)', width: 'var(--sidebar-width)' }}
       >
-        <div className={`flex flex-col h-full ${sidebarOpen ? 'animate-menu-drop md:animate-none' : ''}`}>
+        <div className={`flex flex-col h-full ${menuDropClass}`}>
           <Link to="/dashboard" className="flex items-center justify-center h-16 border-b border-gray-200 hover:bg-gray-50 transition-colors">
             <div className="flex items-center space-x-3">
               {resolvedLogoUrl ? (
@@ -194,23 +181,6 @@ const Layout = ({ children }) => {
                 )
             )}
           </nav>
-
-          {hasMinLevel(2) && (
-            <div className="px-4 pb-4">
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Theme
-              </label>
-              <select
-                value={themeMode}
-                onChange={handleThemeChange}
-                className="input-field text-sm"
-                disabled={themeSaving}
-              >
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
-            </div>
-          )}
 
           <div className="p-4 border-t border-gray-200">
             <div className="flex items-center">

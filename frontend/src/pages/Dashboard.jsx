@@ -404,7 +404,7 @@ const Dashboard = () => {
       </div>
 
       {stats?.departmentBreakdown && stats.departmentBreakdown.length > 0 && (
-        <Link to="/departments" {...getCardProps(6, 'hover:shadow-md transition-shadow')}>
+        <Link to="/departments" className="card block hover:shadow-md transition-shadow">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Department Overview</h3>
           <div className="space-y-3">
             {stats.departmentBreakdown.map((dept) => (

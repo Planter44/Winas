@@ -44,6 +44,8 @@ const Settings = () => {
     login_subtitle: 'Sign in to your account',
     footer_enabled: 'true',
     footer_content: '© 2024 Winas Sacco. All rights reserved.',
+    footer_font_family: 'Inter',
+    footer_bg_color: '#ffffff',
     theme_mode: 'light',
     hamburger_style: 'classic',
     hamburger_color: '#2563eb'
@@ -109,6 +111,8 @@ const Settings = () => {
         login_subtitle: settingsMap.login_subtitle || 'Sign in to your account',
         footer_enabled: settingsMap.footer_enabled || 'true',
         footer_content: settingsMap.footer_content || '© 2024 Winas Sacco. All rights reserved.',
+        footer_font_family: settingsMap.footer_font_family || 'Inter',
+        footer_bg_color: settingsMap.footer_bg_color || '#ffffff',
         theme_mode: settingsMap.theme_mode || 'light',
         hamburger_style: settingsMap.hamburger_style || 'classic',
         hamburger_color: settingsMap.hamburger_color || '#2563eb'
@@ -715,6 +719,38 @@ const Settings = () => {
                           <option value="false">Disabled</option>
                         </select>
                       </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Footer Font</label>
+                        <select
+                          value={siteCustomization.footer_font_family}
+                          onChange={(e) => setSiteCustomization({ ...siteCustomization, footer_font_family: e.target.value })}
+                          className="input-field"
+                        >
+                          <option value="Inter">Inter</option>
+                          <option value="Roboto">Roboto</option>
+                          <option value="Open Sans">Open Sans</option>
+                          <option value="Poppins">Poppins</option>
+                          <option value="Lato">Lato</option>
+                          <option value="Montserrat">Montserrat</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Footer Background</label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="color"
+                            value={siteCustomization.footer_bg_color}
+                            onChange={(e) => setSiteCustomization({ ...siteCustomization, footer_bg_color: e.target.value })}
+                            className="h-10 w-16 rounded border cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={siteCustomization.footer_bg_color}
+                            onChange={(e) => setSiteCustomization({ ...siteCustomization, footer_bg_color: e.target.value })}
+                            className="input-field flex-1"
+                          />
+                        </div>
+                      </div>
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-2">Footer Content</label>
                         <textarea
@@ -742,6 +778,7 @@ const Settings = () => {
                           className="input-field"
                         >
                           <option value="classic">Classic</option>
+                          <option value="drop">Drop</option>
                           <option value="minimal">Minimal</option>
                           <option value="bold">Bold</option>
                         </select>
