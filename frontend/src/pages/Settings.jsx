@@ -41,7 +41,12 @@ const Settings = () => {
     users_title: 'Users',
     departments_title: 'Departments',
     login_welcome_text: 'Welcome to HRMS',
-    login_subtitle: 'Sign in to your account'
+    login_subtitle: 'Sign in to your account',
+    footer_enabled: 'true',
+    footer_content: '© 2024 Winas Sacco. All rights reserved.',
+    theme_mode: 'light',
+    hamburger_style: 'classic',
+    hamburger_color: '#2563eb'
   });
 
   const [leaveTypeForm, setLeaveTypeForm] = useState({
@@ -101,7 +106,12 @@ const Settings = () => {
         users_title: settingsMap.users_title || 'Users',
         departments_title: settingsMap.departments_title || 'Departments',
         login_welcome_text: settingsMap.login_welcome_text || 'Welcome to HRMS',
-        login_subtitle: settingsMap.login_subtitle || 'Sign in to your account'
+        login_subtitle: settingsMap.login_subtitle || 'Sign in to your account',
+        footer_enabled: settingsMap.footer_enabled || 'true',
+        footer_content: settingsMap.footer_content || '© 2024 Winas Sacco. All rights reserved.',
+        theme_mode: settingsMap.theme_mode || 'light',
+        hamburger_style: settingsMap.hamburger_style || 'classic',
+        hamburger_color: settingsMap.hamburger_color || '#2563eb'
       });
 
       setCompanyLogoUrl(settingsMap.company_logo_url || '');
@@ -669,6 +679,86 @@ const Settings = () => {
                             type="text"
                             value={siteCustomization.page_bg_color}
                             onChange={(e) => setSiteCustomization({ ...siteCustomization, page_bg_color: e.target.value })}
+                            className="input-field flex-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Theme & Footer Section */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <SettingsIcon className="mr-2" size={20} />
+                      Theme & Footer
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Theme Mode</label>
+                        <select
+                          value={siteCustomization.theme_mode}
+                          onChange={(e) => setSiteCustomization({ ...siteCustomization, theme_mode: e.target.value })}
+                          className="input-field"
+                        >
+                          <option value="light">Light</option>
+                          <option value="dark">Dark</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Footer</label>
+                        <select
+                          value={siteCustomization.footer_enabled}
+                          onChange={(e) => setSiteCustomization({ ...siteCustomization, footer_enabled: e.target.value })}
+                          className="input-field"
+                        >
+                          <option value="true">Enabled</option>
+                          <option value="false">Disabled</option>
+                        </select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Footer Content</label>
+                        <textarea
+                          value={siteCustomization.footer_content}
+                          onChange={(e) => setSiteCustomization({ ...siteCustomization, footer_content: e.target.value })}
+                          rows={3}
+                          className="input-field"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Navigation Menu Section */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <LayoutIcon className="mr-2" size={20} />
+                      Navigation Menu
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Hamburger Style</label>
+                        <select
+                          value={siteCustomization.hamburger_style}
+                          onChange={(e) => setSiteCustomization({ ...siteCustomization, hamburger_style: e.target.value })}
+                          className="input-field"
+                        >
+                          <option value="classic">Classic</option>
+                          <option value="minimal">Minimal</option>
+                          <option value="bold">Bold</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Hamburger Color</label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="color"
+                            value={siteCustomization.hamburger_color}
+                            onChange={(e) => setSiteCustomization({ ...siteCustomization, hamburger_color: e.target.value })}
+                            className="h-10 w-16 rounded border cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={siteCustomization.hamburger_color}
+                            onChange={(e) => setSiteCustomization({ ...siteCustomization, hamburger_color: e.target.value })}
                             className="input-field flex-1"
                           />
                         </div>

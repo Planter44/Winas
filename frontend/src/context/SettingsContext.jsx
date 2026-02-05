@@ -31,7 +31,12 @@ const defaultSettings = {
   company_logo_url: '',
   company_email: '',
   company_phone: '',
-  company_address: ''
+  company_address: '',
+  footer_enabled: 'true',
+  footer_content: '© 2024 Winas Sacco. All rights reserved.',
+  theme_mode: 'light',
+  hamburger_style: 'classic',
+  hamburger_color: '#2563eb'
 };
 
 export const SettingsProvider = ({ children }) => {
@@ -66,6 +71,9 @@ export const SettingsProvider = ({ children }) => {
 
   const applyTheme = (settingsMap) => {
     const root = document.documentElement;
+    const themeMode = settingsMap.theme_mode || defaultSettings.theme_mode;
+    const isDark = String(themeMode).toLowerCase() === 'dark';
+    root.classList.toggle('theme-dark', isDark);
     
     // Apply primary color
     const primaryColor = settingsMap.primary_color || defaultSettings.primary_color;
@@ -87,9 +95,15 @@ export const SettingsProvider = ({ children }) => {
     root.style.setProperty('--color-secondary-rgb', `${r2}, ${g2}, ${b2}`);
     
     // Apply background colors
-    root.style.setProperty('--color-sidebar-bg', settingsMap.sidebar_bg_color || defaultSettings.sidebar_bg_color);
-    root.style.setProperty('--color-header-bg', settingsMap.header_bg_color || defaultSettings.header_bg_color);
-    root.style.setProperty('--color-page-bg', settingsMap.page_bg_color || defaultSettings.page_bg_color);
+    if (isDark) {
+      root.style.setProperty('--color-sidebar-bg', '#111827');
+      root.style.setProperty('--color-header-bg', '#0f172a');
+      root.style.setProperty('--color-page-bg', '#0b1120');
+    } else {
+      root.style.setProperty('--color-sidebar-bg', settingsMap.sidebar_bg_color || defaultSettings.sidebar_bg_color);
+      root.style.setProperty('--color-header-bg', settingsMap.header_bg_color || defaultSettings.header_bg_color);
+      root.style.setProperty('--color-page-bg', settingsMap.page_bg_color || defaultSettings.page_bg_color);
+    }
     
     // Apply font family
     const fontFamily = settingsMap.font_family || defaultSettings.font_family;
@@ -110,6 +124,10 @@ export const SettingsProvider = ({ children }) => {
     const rawOpacity = parseFloat(settingsMap.dashboard_card_gradient_opacity || defaultSettings.dashboard_card_gradient_opacity);
     const safeOpacity = Number.isFinite(rawOpacity) ? Math.min(Math.max(rawOpacity, 0), 100) : 65;
     root.style.setProperty('--dashboard-card-gradient-opacity', (safeOpacity / 100).toString());
+
+    // Apply hamburger menu color
+    const hamburgerColor = settingsMap.hamburger_color || defaultSettings.hamburger_color;
+    root.style.setProperty('--hamburger-color', hamburgerColor);
   };
 
   const refreshSettings = () => {

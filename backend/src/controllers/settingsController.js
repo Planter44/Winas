@@ -44,6 +44,11 @@ const resetSettingsToDefaults = async (req, res) => {
         departments_title: 'Departments',
         login_welcome_text: 'Welcome to HRMS',
         login_subtitle: 'Sign in to your account',
+        footer_enabled: 'true',
+        footer_content: '© 2024 Winas Sacco. All rights reserved.',
+        theme_mode: 'light',
+        hamburger_style: 'classic',
+        hamburger_color: '#2563eb',
         company_name: 'Winas Sacco',
         company_logo_url: '',
         company_email: '',
@@ -337,6 +342,34 @@ const deleteSetting = async (req, res) => {
     }
 };
 
+const publicSettingKeys = new Set([
+    'primary_color',
+    'secondary_color',
+    'sidebar_bg_color',
+    'header_bg_color',
+    'page_bg_color',
+    'font_family',
+    'sidebar_width',
+    'card_style',
+    'dashboard_card_gradient_opacity',
+    'dashboard_title',
+    'leaves_title',
+    'users_title',
+    'departments_title',
+    'login_welcome_text',
+    'login_subtitle',
+    'footer_enabled',
+    'footer_content',
+    'theme_mode',
+    'hamburger_style',
+    'hamburger_color',
+    'company_name',
+    'company_logo_url',
+    'company_email',
+    'company_phone',
+    'company_address'
+]);
+
 const bulkUpdateSettings = async (req, res) => {
     const client = await db.pool.connect();
     
@@ -351,6 +384,7 @@ const bulkUpdateSettings = async (req, res) => {
 
         for (const setting of settings) {
             const { key, value } = setting;
+            const isPublicSetting = publicSettingKeys.has(key);
             
             const existing = await client.query(
                 'SELECT id FROM system_settings WHERE setting_key = $1',
@@ -358,18 +392,27 @@ const bulkUpdateSettings = async (req, res) => {
             );
 
             if (existing.rows.length > 0) {
-                await client.query(
-                    `UPDATE system_settings 
-                     SET setting_value = $1, updated_by = $2, updated_at = CURRENT_TIMESTAMP 
-                     WHERE setting_key = $3`,
-                    [value, req.user.id, key]
-                );
+                if (isPublicSetting) {
+                    await client.query(
+                        `UPDATE system_settings 
+                         SET setting_value = $1, is_public = true, updated_by = $2, updated_at = CURRENT_TIMESTAMP 
+                         WHERE setting_key = $3`,
+                        [value, req.user.id, key]
+                    );
+                } else {
+                    await client.query(
+                        `UPDATE system_settings 
+                         SET setting_value = $1, updated_by = $2, updated_at = CURRENT_TIMESTAMP 
+                         WHERE setting_key = $3`,
+                        [value, req.user.id, key]
+                    );
+                }
             } else {
                 await client.query(
                     `INSERT INTO system_settings 
-                     (setting_key, setting_value, setting_type, updated_by)
-                     VALUES ($1, $2, 'string', $3)`,
-                    [key, value, req.user.id]
+                     (setting_key, setting_value, setting_type, is_public, updated_by)
+                     VALUES ($1, $2, 'string', $3, $4)`,
+                    [key, value, isPublicSetting, req.user.id]
                 );
             }
         }

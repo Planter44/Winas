@@ -144,23 +144,25 @@ const LeaveDetails = () => {
   return (
     <Layout>
       <div className="max-w-4xl mx-auto">
-        <div className="mb-8 flex items-center">
-          <button onClick={() => navigate('/leaves')} className="mr-4 text-gray-600 hover:text-gray-900">
-            <ArrowLeft size={24} />
-          </button>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Leave Request Details</h1>
-            <p className="text-gray-600">Request ID: #{leave.id}</p>
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center">
+            <button onClick={() => navigate('/leaves')} className="mr-4 text-gray-600 hover:text-gray-900">
+              <ArrowLeft size={24} />
+            </button>
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Leave Request Details</h1>
+              <p className="text-gray-600">Request ID: #{leave.id}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className={`badge ${StatusBadge.class} flex items-center text-base`}>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+            <span className={`badge ${StatusBadge.class} flex items-center text-base self-start sm:self-auto`}>
               <StatusBadge.icon className="mr-1" size={18} />
               {leave.status}
             </span>
             {canEditOwnLeave && (
               <button
                 onClick={() => navigate(`/leaves/${leave.id}/edit`)}
-                className="btn-secondary flex items-center text-sm py-1 px-3"
+                className="btn-secondary flex items-center justify-center text-sm py-1 px-3 w-full sm:w-auto"
               >
                 <Edit size={16} className="mr-1" />
                 Edit
@@ -169,7 +171,7 @@ const LeaveDetails = () => {
             {canDeleteOwnLeave && (
               <button
                 onClick={handleDeleteLeave}
-                className="btn-danger flex items-center text-sm py-1 px-3"
+                className="btn-danger flex items-center justify-center text-sm py-1 px-3 w-full sm:w-auto"
               >
                 <Trash2 size={16} className="mr-1" />
                 Cancel

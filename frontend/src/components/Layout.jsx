@@ -11,8 +11,6 @@ import {
   Building2,
   Settings,
   LogOut,
-  Menu,
-  X,
   User,
   ChevronDown,
   Mail
@@ -20,7 +18,7 @@ import {
 
 const Layout = ({ children }) => {
   const { user, logout, hasMinLevel } = useAuth();
-  const { getSetting, settings } = useSettings();
+  const { getSetting } = useSettings();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -29,10 +27,14 @@ const Layout = ({ children }) => {
   
   const companyName = getSetting('company_name', 'Winas Sacco');
   const companyLogoUrl = getSetting('company_logo_url', '');
-  const sidebarBgColor = getSetting('sidebar_bg_color', '#ffffff');
-  const headerBgColor = getSetting('header_bg_color', '#ffffff');
-  const pageBgColor = getSetting('page_bg_color', '#f3f4f6');
-  const primaryColor = getSetting('primary_color', '#2563eb');
+  const footerEnabled = String(getSetting('footer_enabled', 'true')).toLowerCase() !== 'false';
+  const footerContent = getSetting('footer_content', '© 2024 Winas Sacco. All rights reserved.');
+  const hamburgerStyle = getSetting('hamburger_style', 'classic');
+  const hamburgerStyleClass = hamburgerStyle === 'bold'
+    ? 'hamburger--bold'
+    : hamburgerStyle === 'minimal'
+      ? 'hamburger--minimal'
+      : 'hamburger--classic';
 
   const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
   const API_ORIGIN = API_BASE.replace(/\/?api$/, '');
@@ -99,8 +101,8 @@ const Layout = ({ children }) => {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: pageBgColor }}>
-      <div className="md:hidden fixed top-0 left-0 right-0 border-b border-gray-200 z-50 h-16" style={{ backgroundColor: headerBgColor }}>
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-page-bg)' }}>
+      <div className="md:hidden fixed top-0 left-0 right-0 border-b border-gray-200 z-50 h-16" style={{ backgroundColor: 'var(--color-header-bg)' }}>
         <div className="flex items-center justify-between h-full px-4">
           <Link
             to="/dashboard"
@@ -116,9 +118,13 @@ const Layout = ({ children }) => {
           </Link>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="h-11 w-11 inline-flex items-center justify-center rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 relative"
+            className={`hamburger-button ${hamburgerStyleClass} ${sidebarOpen ? 'is-open' : ''} h-11 w-11 inline-flex items-center justify-center rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors relative`}
+            aria-label="Toggle navigation"
+            aria-expanded={sidebarOpen}
           >
-            {sidebarOpen ? <X size={26} /> : <Menu size={26} />}
+            <span className="hamburger-line" />
+            <span className="hamburger-line" />
+            <span className="hamburger-line" />
             {pendingLeaveCount > 0 && !sidebarOpen && (
               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
                 {pendingLeaveCount}
@@ -132,9 +138,9 @@ const Layout = ({ children }) => {
         className={`fixed inset-y-0 left-0 z-40 border-r border-gray-200 transform transition-transform duration-200 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } md:translate-x-0`}
-        style={{ backgroundColor: sidebarBgColor, width: 'var(--sidebar-width)' }}
+        style={{ backgroundColor: 'var(--color-sidebar-bg)', width: 'var(--sidebar-width)' }}
       >
-        <div className="flex flex-col h-full">
+        <div className={`flex flex-col h-full ${sidebarOpen ? 'animate-menu-drop md:animate-none' : ''}`}>
           <Link to="/dashboard" className="flex items-center justify-center h-16 border-b border-gray-200 hover:bg-gray-50 transition-colors">
             <div className="flex items-center space-x-3">
               {resolvedLogoUrl ? (
@@ -205,7 +211,7 @@ const Layout = ({ children }) => {
       )}
 
       <div className="md:pl-[var(--sidebar-width)]">
-        <header className="hidden md:block border-b border-gray-200 sticky top-0 z-20 px-4 py-3" style={{ backgroundColor: headerBgColor }}>
+        <header className="hidden md:block border-b border-gray-200 sticky top-0 z-20 px-4 py-3" style={{ backgroundColor: 'var(--color-header-bg)' }}>
           <div className="flex items-center justify-between">
             <Link to="/dashboard" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
               {resolvedLogoUrl ? (
@@ -250,6 +256,11 @@ const Layout = ({ children }) => {
         </header>
 
         <main className="p-4 md:p-8 mt-16 md:mt-0">{children}</main>
+        {footerEnabled && (
+          <footer className="border-t border-gray-200 px-4 md:px-8 py-4 text-center text-xs text-gray-500" style={{ backgroundColor: 'var(--color-header-bg)' }}>
+            {footerContent}
+          </footer>
+        )}
       </div>
     </div>
   );

@@ -262,7 +262,7 @@ const PerformanceAppraisals = () => {
           ) : (
             <>
               <div className="md:hidden">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {filteredAppraisals.map((appraisal) => (
                     <div key={appraisal.id} className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
                       <div className="flex items-start justify-between gap-2">
@@ -421,7 +421,7 @@ const PerformanceAppraisals = () => {
 
         {/* Summary Stats */}
         {!loading && filteredAppraisals.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-blue-50 rounded-lg p-4">
               <div className="text-2xl font-bold text-blue-700">{filteredAppraisals.length}</div>
               <div className="text-sm text-blue-600">Total Appraisals</div>

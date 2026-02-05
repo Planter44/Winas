@@ -162,6 +162,14 @@ const deriveNameFromEmail = (email, userId) => {
 const ensureStaffProfileForUser = async (client, userId) => {
     if (!userId) return null;
 
+    let savepointCreated = false;
+    try {
+        await client.query('SAVEPOINT sp_staff_profile');
+        savepointCreated = true;
+    } catch (e) {
+        savepointCreated = false;
+    }
+
     try {
         const existing = await client.query(
             'SELECT id FROM staff_profiles WHERE user_id = $1',
@@ -278,7 +286,24 @@ const ensureStaffProfileForUser = async (client, userId) => {
 
         return created.rows[0]?.id || null;
     } catch (error) {
+        if (savepointCreated) {
+            try {
+                await client.query('ROLLBACK TO SAVEPOINT sp_staff_profile');
+                await client.query('RELEASE SAVEPOINT sp_staff_profile');
+            } catch (e) {
+                // ignore savepoint cleanup failures
+            }
+            savepointCreated = false;
+        }
         return null;
+    } finally {
+        if (savepointCreated) {
+            try {
+                await client.query('RELEASE SAVEPOINT sp_staff_profile');
+            } catch (e) {
+                // ignore savepoint cleanup failures
+            }
+        }
     }
 };
 
@@ -324,6 +349,14 @@ const resolveStaffIdForAppraisal = async (client, userId) => {
     };
 
     const resolveStaffIdFromStaffTable = async () => {
+        let savepointCreated = false;
+        try {
+            await client.query('SAVEPOINT sp_staff_table');
+            savepointCreated = true;
+        } catch (e) {
+            savepointCreated = false;
+        }
+
         try {
             const columnsRes = await client.query(
                 `SELECT column_name, is_nullable, column_default, data_type
@@ -491,7 +524,24 @@ const resolveStaffIdForAppraisal = async (client, userId) => {
                 }
             }
         } catch (error) {
+            if (savepointCreated) {
+                try {
+                    await client.query('ROLLBACK TO SAVEPOINT sp_staff_table');
+                    await client.query('RELEASE SAVEPOINT sp_staff_table');
+                } catch (e) {
+                    // ignore savepoint cleanup failures
+                }
+                savepointCreated = false;
+            }
             return null;
+        } finally {
+            if (savepointCreated) {
+                try {
+                    await client.query('RELEASE SAVEPOINT sp_staff_table');
+                } catch (e) {
+                    // ignore savepoint cleanup failures
+                }
+            }
         }
 
         return null;
@@ -543,6 +593,23 @@ const ensurePerformanceAppraisalSchema = async (client) => {
              ) THEN
                  ALTER TABLE performance_appraisals
                      ALTER COLUMN appraisal_period_id DROP NOT NULL;
+             END IF;
+         END $$;`
+    );
+
+    await client.query(
+        `DO $$
+         BEGIN
+             IF EXISTS (
+                 SELECT 1
+                 FROM information_schema.columns
+                 WHERE table_schema = 'public'
+                   AND table_name = 'performance_appraisals'
+                   AND column_name = 'staff_id'
+                   AND is_nullable = 'NO'
+             ) THEN
+                 ALTER TABLE performance_appraisals
+                     ALTER COLUMN staff_id DROP NOT NULL;
              END IF;
          END $$;`
     );

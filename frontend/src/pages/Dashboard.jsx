@@ -76,6 +76,8 @@ const Dashboard = () => {
     };
   };
 
+  const quickActionClass = 'flex items-center p-3 sm:p-4 border-2 border-primary-200 rounded-lg shadow-sm hover:border-primary-500 hover:bg-primary-50 hover:shadow-md transition-all';
+
   useEffect(() => {
     fetchStats();
   }, []);
@@ -103,7 +105,7 @@ const Dashboard = () => {
 
   const renderStaffDashboard = () => (
     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-      <div {...getCardProps(0)}>
+      <Link to="/leaves" {...getCardProps(0, 'hover:shadow-md transition-shadow')}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Pending Leaves</p>
@@ -113,9 +115,9 @@ const Dashboard = () => {
           </div>
           <Clock className="text-yellow-500" size={32} />
         </div>
-      </div>
+      </Link>
 
-      <div {...getCardProps(1)}>
+      <Link to="/leaves" {...getCardProps(1, 'hover:shadow-md transition-shadow')}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Approved Leaves</p>
@@ -125,9 +127,9 @@ const Dashboard = () => {
           </div>
           <CheckCircle className="text-green-500" size={32} />
         </div>
-      </div>
+      </Link>
 
-      <div {...getCardProps(2)}>
+      <Link to="/leaves" {...getCardProps(2, 'hover:shadow-md transition-shadow')}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Rejected Leaves</p>
@@ -137,7 +139,7 @@ const Dashboard = () => {
           </div>
           <XCircle className="text-red-500" size={32} />
         </div>
-      </div>
+      </Link>
 
       <Link
         to="/performance-appraisals?scope=mine"
@@ -158,7 +160,7 @@ const Dashboard = () => {
 
   const renderSupervisorDashboard = () => (
     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-      <div {...getCardProps(0)}>
+      <Link to="/leaves" {...getCardProps(0, 'hover:shadow-md transition-shadow')}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Pending Approvals</p>
@@ -168,9 +170,9 @@ const Dashboard = () => {
           </div>
           <Clock className="text-yellow-500" size={32} />
         </div>
-      </div>
+      </Link>
 
-      <div {...getCardProps(1)}>
+      <Link to="/my-team" {...getCardProps(1, 'hover:shadow-md transition-shadow')}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Team Size</p>
@@ -180,7 +182,7 @@ const Dashboard = () => {
           </div>
           <Users className="text-primary-500" size={32} />
         </div>
-      </div>
+      </Link>
 
       <div {...getCardProps(2)}>
         <div className="flex items-center justify-between">
@@ -198,7 +200,7 @@ const Dashboard = () => {
 
   const renderHODDashboard = () => (
     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-      <div {...getCardProps(0)}>
+      <Link to="/my-team" {...getCardProps(0, 'hover:shadow-md transition-shadow')}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-indigo-700 mb-1 font-medium">Department Staff</p>
@@ -208,9 +210,9 @@ const Dashboard = () => {
           </div>
           <Users className="text-indigo-500" size={36} />
         </div>
-      </div>
+      </Link>
 
-      <div {...getCardProps(1)}>
+      <Link to="/leaves" {...getCardProps(1, 'hover:shadow-md transition-shadow')}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-yellow-700 mb-1 font-medium">Pending Leaves</p>
@@ -220,7 +222,7 @@ const Dashboard = () => {
           </div>
           <Calendar className="text-yellow-500" size={36} />
         </div>
-      </div>
+      </Link>
 
       <div {...getCardProps(2)}>
         <div className="flex items-center justify-between">
@@ -239,7 +241,7 @@ const Dashboard = () => {
   const renderHRDashboard = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-        <div {...getCardProps(0)}>
+        <Link to="/users" {...getCardProps(0, 'hover:shadow-md transition-shadow')}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Users</p>
@@ -247,9 +249,9 @@ const Dashboard = () => {
             </div>
             <Users className="text-primary-500" size={32} />
           </div>
-        </div>
+        </Link>
 
-        <div {...getCardProps(1)}>
+        <Link to="/leaves" {...getCardProps(1, 'hover:shadow-md transition-shadow')}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Pending HR Approval</p>
@@ -259,9 +261,9 @@ const Dashboard = () => {
             </div>
             <Clock className="text-yellow-500" size={32} />
           </div>
-        </div>
+        </Link>
 
-        <div {...getCardProps(2)}>
+        <Link to="/leaves" {...getCardProps(2, 'hover:shadow-md transition-shadow')}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Approved Leaves</p>
@@ -271,9 +273,9 @@ const Dashboard = () => {
             </div>
             <CheckCircle className="text-green-500" size={32} />
           </div>
-        </div>
+        </Link>
 
-        <div {...getCardProps(3)}>
+        <Link to="/leaves" {...getCardProps(3, 'hover:shadow-md transition-shadow')}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Rejected Leaves</p>
@@ -283,7 +285,7 @@ const Dashboard = () => {
             </div>
             <XCircle className="text-red-500" size={32} />
           </div>
-        </div>
+        </Link>
 
         <Link
           to="/performance-appraisals?group=pending_review"
@@ -321,7 +323,7 @@ const Dashboard = () => {
   const renderAdminDashboard = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-        <div {...getCardProps(0)}>
+        <Link to="/users" {...getCardProps(0, 'hover:shadow-md transition-shadow')}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-700 mb-1 font-medium">Total Users</p>
@@ -329,9 +331,9 @@ const Dashboard = () => {
             </div>
             <Users className="text-blue-500" size={36} />
           </div>
-        </div>
+        </Link>
 
-        <div {...getCardProps(1)}>
+        <Link to="/departments" {...getCardProps(1, 'hover:shadow-md transition-shadow')}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-purple-700 mb-1 font-medium">Departments</p>
@@ -339,9 +341,9 @@ const Dashboard = () => {
             </div>
             <Building2 className="text-purple-500" size={36} />
           </div>
-        </div>
+        </Link>
 
-        <div {...getCardProps(2)}>
+        <Link to="/leaves" {...getCardProps(2, 'hover:shadow-md transition-shadow')}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-rose-700 mb-1 font-medium">Total Leaves</p>
@@ -351,9 +353,9 @@ const Dashboard = () => {
             </div>
             <Calendar className="text-rose-500" size={36} />
           </div>
-        </div>
+        </Link>
 
-        <div {...getCardProps(3)}>
+        <Link to="/performance-appraisals" {...getCardProps(3, 'hover:shadow-md transition-shadow')}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-green-700 mb-1 font-medium">Avg Performance</p>
@@ -366,7 +368,7 @@ const Dashboard = () => {
             </div>
             <TrendingUp className="text-green-500" size={36} />
           </div>
-        </div>
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
@@ -402,7 +404,7 @@ const Dashboard = () => {
       </div>
 
       {stats?.departmentBreakdown && stats.departmentBreakdown.length > 0 && (
-        <div {...getCardProps(6)}>
+        <Link to="/departments" {...getCardProps(6, 'hover:shadow-md transition-shadow')}>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Department Overview</h3>
           <div className="space-y-3">
             {stats.departmentBreakdown.map((dept) => (
@@ -412,7 +414,7 @@ const Dashboard = () => {
               </div>
             ))}
           </div>
-        </div>
+        </Link>
       )}
     </div>
   );
@@ -445,7 +447,7 @@ const Dashboard = () => {
               <>
                 <a
                   href="/leaves"
-                  className="flex items-center p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors"
+                  className={quickActionClass}
                 >
                   <Calendar className="mr-2 sm:mr-3 text-primary-600 flex-shrink-0" size={22} />
                   <div className="min-w-0">
@@ -456,7 +458,7 @@ const Dashboard = () => {
 
                 <a
                   href="/users"
-                  className="flex items-center p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors"
+                  className={quickActionClass}
                 >
                   <Users className="mr-2 sm:mr-3 text-primary-600 flex-shrink-0" size={22} />
                   <div className="min-w-0">
@@ -467,7 +469,7 @@ const Dashboard = () => {
 
                 <a
                   href="/departments"
-                  className="flex items-center p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors"
+                  className={quickActionClass}
                 >
                   <Building2 className="mr-2 sm:mr-3 text-primary-600 flex-shrink-0" size={22} />
                   <div className="min-w-0">
@@ -478,7 +480,7 @@ const Dashboard = () => {
 
                 <a
                   href="/performance-appraisals?scope=mine"
-                  className="flex items-center p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors"
+                  className={quickActionClass}
                 >
                   <Award className="mr-2 sm:mr-3 text-primary-600 flex-shrink-0" size={22} />
                   <div className="min-w-0">
@@ -489,7 +491,7 @@ const Dashboard = () => {
 
                 <a
                   href="/settings"
-                  className="flex items-center p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors"
+                  className={quickActionClass}
                 >
                   <TrendingUp className="mr-2 sm:mr-3 text-primary-600 flex-shrink-0" size={22} />
                   <div className="min-w-0">
@@ -502,7 +504,7 @@ const Dashboard = () => {
               <>
                 <a
                   href="/leaves/new"
-                  className="flex items-center p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors"
+                  className={quickActionClass}
                 >
                   <Calendar className="mr-2 sm:mr-3 text-primary-600 flex-shrink-0" size={22} />
                   <div className="min-w-0">
@@ -513,7 +515,7 @@ const Dashboard = () => {
 
                 <a
                   href="/leaves"
-                  className="flex items-center p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors"
+                  className={quickActionClass}
                 >
                   <Clock className="mr-2 sm:mr-3 text-primary-600 flex-shrink-0" size={22} />
                   <div className="min-w-0">
@@ -524,7 +526,7 @@ const Dashboard = () => {
 
                 <a
                   href="/performance-appraisals"
-                  className="flex items-center p-3 sm:p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors"
+                  className={quickActionClass}
                 >
                   <Award className="mr-2 sm:mr-3 text-primary-600 flex-shrink-0" size={22} />
                   <div className="min-w-0">

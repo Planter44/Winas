@@ -14,6 +14,7 @@
   --sidebar-width: 256px;
   --card-border-radius: 0.5rem;
   --dashboard-card-gradient-opacity: 0.65;
+  --hamburger-color: #2563eb;
 }
 
 * {
@@ -29,6 +30,17 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--color-page-bg);
+}
+
+@keyframes menu-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @layer components {
@@ -70,6 +82,49 @@ body {
       rgba(var(--dashboard-gradient-to, 16, 185, 129), var(--dashboard-card-gradient-opacity))
     );
     border-color: rgba(var(--dashboard-gradient-border, 59, 130, 246), 0.35);
+  }
+
+  .hamburger-button {
+    gap: 5px;
+  }
+
+  .hamburger-line {
+    width: 22px;
+    height: 2px;
+    background-color: var(--hamburger-color);
+    border-radius: 999px;
+    transition: transform 0.25s ease, opacity 0.2s ease, width 0.2s ease;
+  }
+
+  .hamburger--minimal .hamburger-line {
+    width: 20px;
+    height: 1.5px;
+  }
+
+  .hamburger--minimal .hamburger-line:nth-child(2) {
+    width: 12px;
+    align-self: flex-end;
+  }
+
+  .hamburger--bold .hamburger-line {
+    width: 26px;
+    height: 3px;
+  }
+
+  .hamburger-button.is-open .hamburger-line:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+  }
+
+  .hamburger-button.is-open .hamburger-line:nth-child(2) {
+    opacity: 0;
+  }
+
+  .hamburger-button.is-open .hamburger-line:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+  }
+
+  .animate-menu-drop {
+    animation: menu-drop 0.25s ease-out;
   }
 
   .badge {
