@@ -124,6 +124,15 @@ body {
     align-self: flex-end;
   }
 
+  .hamburger--stacked {
+    gap: 6px;
+  }
+
+  .hamburger--stacked .hamburger-line {
+    width: 24px;
+    height: 2px;
+  }
+
   .hamburger--drop .hamburger-line {
     transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease, width 0.2s ease;
   }
@@ -143,6 +152,14 @@ body {
 
   .hamburger-button.is-open .hamburger-line:nth-child(3) {
     transform: translateY(-6px) rotate(-45deg);
+  }
+
+  .hamburger--stacked.is-open .hamburger-line:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+
+  .hamburger--stacked.is-open .hamburger-line:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
   }
 
   .animate-menu-drop {

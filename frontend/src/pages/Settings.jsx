@@ -778,6 +778,7 @@ const Settings = () => {
                           className="input-field"
                         >
                           <option value="classic">Classic</option>
+                          <option value="stacked">Stacked</option>
                           <option value="drop">Drop</option>
                           <option value="minimal">Minimal</option>
                           <option value="bold">Bold</option>

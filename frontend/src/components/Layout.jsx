@@ -34,10 +34,12 @@ const Layout = ({ children }) => {
     bold: 'hamburger--bold',
     minimal: 'hamburger--minimal',
     drop: 'hamburger--drop',
+    stacked: 'hamburger--stacked',
     classic: 'hamburger--classic'
   }[hamburgerStyle] || 'hamburger--classic';
+  const useFancyDrop = ['drop', 'stacked'].includes(hamburgerStyle);
   const menuDropClass = sidebarOpen
-    ? (hamburgerStyle === 'drop' ? 'animate-menu-drop-fancy md:animate-none' : 'animate-menu-drop md:animate-none')
+    ? (useFancyDrop ? 'animate-menu-drop-fancy md:animate-none' : 'animate-menu-drop md:animate-none')
     : '';
 
   const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
