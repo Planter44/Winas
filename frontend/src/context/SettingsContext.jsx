@@ -34,6 +34,8 @@ const defaultSettings = {
   company_address: '',
   footer_enabled: 'true',
   footer_content: '© 2024 Winas Sacco. All rights reserved.',
+  footer_font_family: 'Inter',
+  footer_bg_color: '#ffffff',
   theme_mode: 'light',
   hamburger_style: 'classic',
   hamburger_color: '#2563eb'
@@ -128,6 +130,21 @@ export const SettingsProvider = ({ children }) => {
     // Apply hamburger menu color
     const hamburgerColor = settingsMap.hamburger_color || defaultSettings.hamburger_color;
     root.style.setProperty('--hamburger-color', hamburgerColor);
+
+    // Apply footer styles
+    const footerFontFamily = settingsMap.footer_font_family
+      || settingsMap.font_family
+      || defaultSettings.footer_font_family;
+    root.style.setProperty('--footer-font-family', footerFontFamily);
+
+    const footerBgColor = settingsMap.footer_bg_color
+      || (isDark
+        ? '#0f172a'
+        : (settingsMap.header_bg_color || defaultSettings.header_bg_color));
+    root.style.setProperty('--footer-bg-color', footerBgColor);
+
+    const footerTextColor = isDark ? '#cbd5f5' : '#6b7280';
+    root.style.setProperty('--footer-text-color', footerTextColor);
   };
 
   const refreshSettings = () => {

@@ -15,6 +15,9 @@
   --card-border-radius: 0.5rem;
   --dashboard-card-gradient-opacity: 0.65;
   --hamburger-color: #2563eb;
+  --footer-font-family: 'Inter';
+  --footer-bg-color: #ffffff;
+  --footer-text-color: #6b7280;
 }
 
 * {

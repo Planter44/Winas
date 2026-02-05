@@ -71,7 +71,7 @@ const Dashboard = () => {
   const getCardProps = (index, extraClassName = '') => {
     const card = getCardBackground(index);
     return {
-      className: ['card', card.className, extraClassName].filter(Boolean).join(' '),
+      className: ['card', card.className, 'block', extraClassName].filter(Boolean).join(' '),
       style: card.style
     };
   };

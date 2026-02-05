@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
-import { leaveAPI, messageAPI } from '../services/api';
+import { leaveAPI, messageAPI, settingsAPI } from '../services/api';
 import {
   LayoutDashboard,
   Users,
@@ -18,17 +18,19 @@ import {
 
 const Layout = ({ children }) => {
   const { user, logout, hasMinLevel } = useAuth();
-  const { getSetting } = useSettings();
+  const { getSetting, refreshSettings } = useSettings();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  const [themeSaving, setThemeSaving] = useState(false);
   
   const companyName = getSetting('company_name', 'Winas Sacco');
   const companyLogoUrl = getSetting('company_logo_url', '');
   const footerEnabled = String(getSetting('footer_enabled', 'true')).toLowerCase() !== 'false';
   const footerContent = getSetting('footer_content', '© 2024 Winas Sacco. All rights reserved.');
+  const themeMode = getSetting('theme_mode', 'light');
   const hamburgerStyle = getSetting('hamburger_style', 'classic');
   const hamburgerStyleClass = hamburgerStyle === 'bold'
     ? 'hamburger--bold'
@@ -83,6 +85,21 @@ const Layout = ({ children }) => {
       setUnreadMessageCount(response.data.unreadCount || 0);
     } catch (error) {
       console.error('Failed to fetch unread messages:', error);
+    }
+  };
+
+  const handleThemeChange = async (event) => {
+    const nextMode = event.target.value;
+    setThemeSaving(true);
+    try {
+      await settingsAPI.bulkUpdate({
+        settings: [{ key: 'theme_mode', value: nextMode }]
+      });
+      refreshSettings();
+    } catch (error) {
+      console.error('Failed to update theme mode:', error);
+    } finally {
+      setThemeSaving(false);
     }
   };
 
@@ -178,6 +195,23 @@ const Layout = ({ children }) => {
             )}
           </nav>
 
+          {hasMinLevel(2) && (
+            <div className="px-4 pb-4">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Theme
+              </label>
+              <select
+                value={themeMode}
+                onChange={handleThemeChange}
+                className="input-field text-sm"
+                disabled={themeSaving}
+              >
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </div>
+          )}
+
           <div className="p-4 border-t border-gray-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -257,7 +291,14 @@ const Layout = ({ children }) => {
 
         <main className="p-4 md:p-8 mt-16 md:mt-0">{children}</main>
         {footerEnabled && (
-          <footer className="border-t border-gray-200 px-4 md:px-8 py-4 text-center text-xs text-gray-500" style={{ backgroundColor: 'var(--color-header-bg)' }}>
+          <footer
+            className="border-t border-gray-200 px-4 md:px-8 py-4 text-center text-xs"
+            style={{
+              backgroundColor: 'var(--footer-bg-color)',
+              color: 'var(--footer-text-color)',
+              fontFamily: 'var(--footer-font-family)'
+            }}
+          >
             {footerContent}
           </footer>
         )}
