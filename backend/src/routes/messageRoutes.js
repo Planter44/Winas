@@ -3,8 +3,9 @@ const router = express.Router();
 const messageController = require('../controllers/messageController');
 const { authenticateToken, authorizeMinLevel } = require('../middleware/auth');
 
-router.post('/', authenticateToken, authorizeMinLevel(5), messageController.sendMessage);
+router.post('/', authenticateToken, authorizeMinLevel(6), messageController.sendMessage);
 router.get('/inbox', authenticateToken, messageController.getInbox);
+router.get('/sent', authenticateToken, messageController.getSent);
 router.get('/unread-count', authenticateToken, messageController.getUnreadCount);
 router.get('/:id', authenticateToken, messageController.getMessageById);
 router.patch('/:id/read', authenticateToken, messageController.markAsRead);

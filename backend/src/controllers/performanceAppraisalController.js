@@ -4,6 +4,26 @@ const { logAudit } = require('../middleware/audit');
 const normalizeRoleName = (role) => String(role || '').trim();
 const HR_ROLE_NAMES = new Set(['HR', 'HR Manager', 'Human Resource', 'Human Resources']);
 
+const findDepartmentUserByRole = async (client, departmentId, roleNames) => {
+    if (!departmentId) return null;
+    const roles = Array.isArray(roleNames) ? roleNames : [roleNames];
+    if (roles.length === 0) return null;
+
+    const result = await client.query(
+        `SELECT u.id
+         FROM users u
+         JOIN roles r ON u.role_id = r.id
+         WHERE u.department_id = $1
+           AND u.deleted_at IS NULL
+           AND r.name = ANY($2::text[])
+         ORDER BY u.id ASC
+         LIMIT 1`,
+        [departmentId, roles]
+    );
+
+    return result.rows[0]?.id || null;
+};
+
 const isPrivilegedRole = (user) => {
     const role = normalizeRoleName(user?.role_name);
     return role === 'CEO' || role === 'HR' || role === 'Super Admin';
@@ -92,23 +112,7 @@ const resolveSupervisorStaffId = async (client, userId, fallbackStaffId) => {
     const deptId = meta.rows[0]?.department_id || null;
     const roleName = normalizeRoleName(meta.rows[0]?.role_name);
     const roleNeedsCeo = roleName === 'HOD' || HR_ROLE_NAMES.has(roleName);
-
-    // Follow leave approver rule: for Supervisors, their supervisor/approver is the HOD of their department.
-    if (roleName.toLowerCase() === 'supervisor' && deptId) {
-        const hodUser = await client.query(
-            `SELECT u.id
-             FROM users u
-             JOIN roles r ON u.role_id = r.id
-             WHERE u.department_id = $1
-               AND r.name = 'HOD'
-               AND u.deleted_at IS NULL
-             ORDER BY u.id ASC
-             LIMIT 1`,
-            [deptId]
-        );
-        const hodUserId = hodUser.rows[0]?.id || null;
-        if (hodUserId) return hodUserId;
-    }
+    const roleNameLower = roleName.toLowerCase();
 
     const getCeoUserId = async () => {
         const ceoUser = await client.query(
@@ -122,6 +126,28 @@ const resolveSupervisorStaffId = async (client, userId, fallbackStaffId) => {
         );
         return ceoUser.rows[0]?.id || null;
     };
+
+    const getHodUserId = async () => {
+        if (!deptId) return null;
+        return await findDepartmentUserByRole(client, deptId, ['HOD']);
+    };
+
+    // Follow leave approver rule: for Supervisors, their supervisor/approver is the HOD of their department.
+    if (roleNameLower === 'supervisor') {
+        const hodUserId = await getHodUserId();
+        if (hodUserId) return hodUserId;
+        if (supervisorUserId) return supervisorUserId;
+        const ceoUserId = await getCeoUserId();
+        return ceoUserId || fallbackStaffId || null;
+    }
+
+    // For staff without explicit supervisor, fall back to department supervisor or HOD.
+    if (roleNameLower === 'staff' && !supervisorUserId && deptId) {
+        const deptSupervisorId = await findDepartmentUserByRole(client, deptId, ['Supervisor']);
+        if (deptSupervisorId) return deptSupervisorId;
+        const hodUserId = await getHodUserId();
+        if (hodUserId) return hodUserId;
+    }
 
     if (roleNeedsCeo) {
         const ceoUserId = await getCeoUserId();
@@ -307,7 +333,227 @@ const ensureStaffProfileForUser = async (client, userId) => {
     }
 };
 
-const resolveStaffIdForAppraisal = async (client, userId) => {
+const resolveStaffProfileIdForUser = async (client, userId) => {
+    if (!userId) return null;
+    try {
+        const staffRes = await client.query(
+            `SELECT id FROM staff_profiles WHERE user_id = $1`,
+            [userId]
+        );
+        if (staffRes.rows[0]?.id) {
+            return staffRes.rows[0].id;
+        }
+
+        return await ensureStaffProfileForUser(client, userId);
+    } catch (error) {
+        return null;
+    }
+};
+
+const resolveStaffIdFromStaffTable = async (client, userId) => {
+    if (!userId) return null;
+    let savepointCreated = false;
+    try {
+        await client.query('SAVEPOINT sp_staff_table');
+        savepointCreated = true;
+    } catch (e) {
+        savepointCreated = false;
+    }
+
+    try {
+        const columnsRes = await client.query(
+            `SELECT column_name, is_nullable, column_default, data_type
+             FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'staff'`
+        );
+        const columns = new Map(columnsRes.rows.map(r => [r.column_name, r]));
+        if (columns.size === 0) return null;
+
+        const userRes = await client.query(
+            `SELECT email, department_id FROM users WHERE id = $1`,
+            [userId]
+        );
+        const userEmail = userRes.rows[0]?.email || null;
+        const departmentId = userRes.rows[0]?.department_id || null;
+        const normalizedEmail = userEmail ? String(userEmail).toLowerCase() : null;
+
+        let staffProfileId = null;
+        let employeeNumber = null;
+        const profileRes = await client.query(
+            `SELECT id, employee_number, first_name, last_name, job_title
+             FROM staff_profiles WHERE user_id = $1`,
+            [userId]
+        );
+        staffProfileId = profileRes.rows[0]?.id || null;
+        if (!staffProfileId && columns.has('staff_profile_id')) {
+            staffProfileId = await resolveStaffProfileIdForUser(client, userId);
+        }
+        employeeNumber = profileRes.rows[0]?.employee_number || null;
+        const firstName = profileRes.rows[0]?.first_name || null;
+        const lastName = profileRes.rows[0]?.last_name || null;
+        const jobTitle = profileRes.rows[0]?.job_title || null;
+
+        const tryLookup = async (column, value) => {
+            if (!value) return null;
+            const res = await client.query(
+                `SELECT id FROM staff WHERE ${column} = $1 LIMIT 1`,
+                [value]
+            );
+            return res.rows[0]?.id || null;
+        };
+
+        if (columns.has('user_id')) {
+            const id = await tryLookup('user_id', userId);
+            if (id) return id;
+        }
+        if (columns.has('staff_profile_id')) {
+            const id = await tryLookup('staff_profile_id', staffProfileId);
+            if (id) return id;
+        }
+
+        const employeeColumns = ['employee_number', 'employee_no', 'staff_no', 'staff_number', 'pf_number', 'pf_no'];
+        for (const col of employeeColumns) {
+            if (columns.has(col)) {
+                const id = await tryLookup(col, employeeNumber);
+                if (id) return id;
+            }
+        }
+
+        const emailColumns = ['email', 'work_email', 'official_email'];
+        for (const col of emailColumns) {
+            if (columns.has(col)) {
+                const id = await tryLookup(col, normalizedEmail);
+                if (id) return id;
+            }
+        }
+
+        const hasIdentifierColumn = columns.has('user_id')
+            || columns.has('staff_profile_id')
+            || employeeColumns.some(col => columns.has(col))
+            || emailColumns.some(col => columns.has(col));
+        if (!hasIdentifierColumn) return null;
+
+        const requiredColumns = columnsRes.rows.filter(
+            row => row.is_nullable === 'NO' && !row.column_default && row.column_name !== 'id'
+        );
+        const insertCols = [];
+        const insertValues = [];
+        const pushValue = (columnName, value) => {
+            if (!columns.has(columnName)) return;
+            if (insertCols.includes(columnName)) return;
+            if (value === undefined) return;
+            insertCols.push(columnName);
+            insertValues.push(value);
+        };
+        const fallbackToken = Date.now();
+        const resolveFallbackValue = (column) => {
+            const columnName = column?.column_name || 'value';
+            const type = String(column?.data_type || '').toLowerCase();
+            if (
+                type.includes('int') ||
+                type === 'numeric' ||
+                type === 'decimal' ||
+                type === 'double precision' ||
+                type === 'real'
+            ) {
+                return 0;
+            }
+            if (type === 'boolean') {
+                return false;
+            }
+            if (type === 'date') {
+                return new Date().toISOString().slice(0, 10);
+            }
+            if (type.includes('timestamp')) {
+                return new Date();
+            }
+            const raw = `AUTO-${columnName}-${userId || 'staff'}-${fallbackToken}`;
+            return raw.length > 60 ? raw.slice(0, 60) : raw;
+        };
+
+        pushValue('user_id', userId);
+        pushValue('staff_profile_id', staffProfileId);
+
+        const employeeValue = employeeNumber || (userId ? `AUTO-${userId}` : null);
+        const employeeColumn = employeeColumns.find(col => columns.has(col));
+        if (employeeColumn) {
+            pushValue(employeeColumn, employeeValue);
+        }
+
+        const emailValue = normalizedEmail || userEmail;
+        const emailColumn = emailColumns.find(col => columns.has(col));
+        if (emailColumn) {
+            pushValue(emailColumn, emailValue);
+        }
+
+        pushValue('first_name', firstName);
+        pushValue('last_name', lastName);
+        pushValue('job_title', jobTitle);
+        pushValue('department_id', departmentId);
+
+        requiredColumns.forEach((column) => {
+            if (insertCols.includes(column.column_name)) return;
+            pushValue(column.column_name, resolveFallbackValue(column));
+        });
+
+        if (insertCols.length === 0) return null;
+
+        const placeholders = insertValues.map((_, idx) => `$${idx + 1}`).join(', ');
+        const insertRes = await client.query(
+            `INSERT INTO staff (${insertCols.join(', ')})
+             VALUES (${placeholders})
+             ON CONFLICT DO NOTHING
+             RETURNING id`,
+            insertValues
+        );
+        if (insertRes.rows[0]?.id) return insertRes.rows[0].id;
+
+        if (columns.has('user_id')) {
+            const id = await tryLookup('user_id', userId);
+            if (id) return id;
+        }
+        if (columns.has('staff_profile_id')) {
+            const id = await tryLookup('staff_profile_id', staffProfileId);
+            if (id) return id;
+        }
+        for (const col of employeeColumns) {
+            if (columns.has(col)) {
+                const id = await tryLookup(col, employeeValue);
+                if (id) return id;
+            }
+        }
+        for (const col of emailColumns) {
+            if (columns.has(col)) {
+                const id = await tryLookup(col, emailValue);
+                if (id) return id;
+            }
+        }
+    } catch (error) {
+        if (savepointCreated) {
+            try {
+                await client.query('ROLLBACK TO SAVEPOINT sp_staff_table');
+                await client.query('RELEASE SAVEPOINT sp_staff_table');
+            } catch (e) {
+                // ignore savepoint cleanup failures
+            }
+            savepointCreated = false;
+        }
+        return null;
+    } finally {
+        if (savepointCreated) {
+            try {
+                await client.query('RELEASE SAVEPOINT sp_staff_table');
+            } catch (e) {
+                // ignore savepoint cleanup failures
+            }
+        }
+    }
+
+    return null;
+};
+
+const resolveAppraisalUserForeignId = async (client, columnName, userId) => {
     if (!userId) return null;
 
     let foreignTable = null;
@@ -324,244 +570,33 @@ const resolveStaffIdForAppraisal = async (client, userId) => {
              WHERE tc.table_schema = 'public'
                AND tc.table_name = 'performance_appraisals'
                AND tc.constraint_type = 'FOREIGN KEY'
-               AND kcu.column_name = 'staff_id'
-             LIMIT 1`
+               AND kcu.column_name = $1
+             LIMIT 1`,
+            [columnName]
         );
         foreignTable = fkRes.rows[0]?.foreign_table_name || null;
     } catch (error) {
         foreignTable = null;
     }
 
-    const resolveStaffProfileId = async () => {
-        try {
-            const staffRes = await client.query(
-                `SELECT id FROM staff_profiles WHERE user_id = $1`,
-                [userId]
-            );
-            if (staffRes.rows[0]?.id) {
-                return staffRes.rows[0].id;
-            }
-
-            return await ensureStaffProfileForUser(client, userId);
-        } catch (error) {
-            return null;
-        }
-    };
-
-    const resolveStaffIdFromStaffTable = async () => {
-        let savepointCreated = false;
-        try {
-            await client.query('SAVEPOINT sp_staff_table');
-            savepointCreated = true;
-        } catch (e) {
-            savepointCreated = false;
-        }
-
-        try {
-            const columnsRes = await client.query(
-                `SELECT column_name, is_nullable, column_default, data_type
-                 FROM information_schema.columns
-                 WHERE table_schema = 'public'
-                   AND table_name = 'staff'`
-            );
-            const columns = new Map(columnsRes.rows.map(r => [r.column_name, r]));
-            if (columns.size === 0) return null;
-
-            const userRes = await client.query(
-                `SELECT email, department_id FROM users WHERE id = $1`,
-                [userId]
-            );
-            const userEmail = userRes.rows[0]?.email || null;
-            const departmentId = userRes.rows[0]?.department_id || null;
-            const normalizedEmail = userEmail ? String(userEmail).toLowerCase() : null;
-
-            let staffProfileId = null;
-            let employeeNumber = null;
-            const profileRes = await client.query(
-                `SELECT id, employee_number, first_name, last_name, job_title
-                 FROM staff_profiles WHERE user_id = $1`,
-                [userId]
-            );
-            staffProfileId = profileRes.rows[0]?.id || null;
-            employeeNumber = profileRes.rows[0]?.employee_number || null;
-            const firstName = profileRes.rows[0]?.first_name || null;
-            const lastName = profileRes.rows[0]?.last_name || null;
-            const jobTitle = profileRes.rows[0]?.job_title || null;
-
-            const tryLookup = async (column, value) => {
-                if (!value) return null;
-                const res = await client.query(
-                    `SELECT id FROM staff WHERE ${column} = $1 LIMIT 1`,
-                    [value]
-                );
-                return res.rows[0]?.id || null;
-            };
-
-            if (columns.has('user_id')) {
-                const id = await tryLookup('user_id', userId);
-                if (id) return id;
-            }
-            if (columns.has('staff_profile_id')) {
-                const id = await tryLookup('staff_profile_id', staffProfileId);
-                if (id) return id;
-            }
-
-            const employeeColumns = ['employee_number', 'employee_no', 'staff_no', 'staff_number', 'pf_number', 'pf_no'];
-            for (const col of employeeColumns) {
-                if (columns.has(col)) {
-                    const id = await tryLookup(col, employeeNumber);
-                    if (id) return id;
-                }
-            }
-
-            const emailColumns = ['email', 'work_email', 'official_email'];
-            for (const col of emailColumns) {
-                if (columns.has(col)) {
-                    const id = await tryLookup(col, normalizedEmail);
-                    if (id) return id;
-                }
-            }
-
-            const hasIdentifierColumn = columns.has('user_id')
-                || columns.has('staff_profile_id')
-                || employeeColumns.some(col => columns.has(col))
-                || emailColumns.some(col => columns.has(col));
-            if (!hasIdentifierColumn) return null;
-
-            const requiredColumns = columnsRes.rows.filter(
-                row => row.is_nullable === 'NO' && !row.column_default && row.column_name !== 'id'
-            );
-            const insertCols = [];
-            const insertValues = [];
-            const pushValue = (columnName, value) => {
-                if (!columns.has(columnName)) return;
-                if (insertCols.includes(columnName)) return;
-                if (value === undefined) return;
-                insertCols.push(columnName);
-                insertValues.push(value);
-            };
-            const fallbackToken = Date.now();
-            const resolveFallbackValue = (column) => {
-                const columnName = column?.column_name || 'value';
-                const type = String(column?.data_type || '').toLowerCase();
-                if (
-                    type.includes('int') ||
-                    type === 'numeric' ||
-                    type === 'decimal' ||
-                    type === 'double precision' ||
-                    type === 'real'
-                ) {
-                    return 0;
-                }
-                if (type === 'boolean') {
-                    return false;
-                }
-                if (type === 'date') {
-                    return new Date().toISOString().slice(0, 10);
-                }
-                if (type.includes('timestamp')) {
-                    return new Date();
-                }
-                const raw = `AUTO-${columnName}-${userId || 'staff'}-${fallbackToken}`;
-                return raw.length > 60 ? raw.slice(0, 60) : raw;
-            };
-
-            pushValue('user_id', userId);
-            pushValue('staff_profile_id', staffProfileId);
-
-            const employeeValue = employeeNumber || (userId ? `AUTO-${userId}` : null);
-            const employeeColumn = employeeColumns.find(col => columns.has(col));
-            if (employeeColumn) {
-                pushValue(employeeColumn, employeeValue);
-            }
-
-            const emailValue = normalizedEmail || userEmail;
-            const emailColumn = emailColumns.find(col => columns.has(col));
-            if (emailColumn) {
-                pushValue(emailColumn, emailValue);
-            }
-
-            pushValue('first_name', firstName);
-            pushValue('last_name', lastName);
-            pushValue('job_title', jobTitle);
-            pushValue('department_id', departmentId);
-
-            requiredColumns.forEach((column) => {
-                if (insertCols.includes(column.column_name)) return;
-                pushValue(column.column_name, resolveFallbackValue(column));
-            });
-
-            if (insertCols.length === 0) return null;
-
-            const placeholders = insertValues.map((_, idx) => `$${idx + 1}`).join(', ');
-            const insertRes = await client.query(
-                `INSERT INTO staff (${insertCols.join(', ')})
-                 VALUES (${placeholders})
-                 ON CONFLICT DO NOTHING
-                 RETURNING id`,
-                insertValues
-            );
-            if (insertRes.rows[0]?.id) return insertRes.rows[0].id;
-
-            if (columns.has('user_id')) {
-                const id = await tryLookup('user_id', userId);
-                if (id) return id;
-            }
-            if (columns.has('staff_profile_id')) {
-                const id = await tryLookup('staff_profile_id', staffProfileId);
-                if (id) return id;
-            }
-            for (const col of employeeColumns) {
-                if (columns.has(col)) {
-                    const id = await tryLookup(col, employeeValue);
-                    if (id) return id;
-                }
-            }
-            for (const col of emailColumns) {
-                if (columns.has(col)) {
-                    const id = await tryLookup(col, emailValue);
-                    if (id) return id;
-                }
-            }
-        } catch (error) {
-            if (savepointCreated) {
-                try {
-                    await client.query('ROLLBACK TO SAVEPOINT sp_staff_table');
-                    await client.query('RELEASE SAVEPOINT sp_staff_table');
-                } catch (e) {
-                    // ignore savepoint cleanup failures
-                }
-                savepointCreated = false;
-            }
-            return null;
-        } finally {
-            if (savepointCreated) {
-                try {
-                    await client.query('RELEASE SAVEPOINT sp_staff_table');
-                } catch (e) {
-                    // ignore savepoint cleanup failures
-                }
-            }
-        }
-
-        return null;
-    };
-
-    if (foreignTable === 'users') {
+    if (!foreignTable || foreignTable === 'users') {
         return userId;
     }
 
     if (foreignTable === 'staff_profiles') {
-        return await resolveStaffProfileId();
+        return await resolveStaffProfileIdForUser(client, userId);
     }
 
     if (foreignTable === 'staff') {
-        const staffId = await resolveStaffIdFromStaffTable();
-        return staffId || null;
+        return await resolveStaffIdFromStaffTable(client, userId);
     }
 
-    const staffId = await resolveStaffProfileId();
+    const staffId = await resolveStaffProfileIdForUser(client, userId);
     return staffId || userId;
+};
+
+const resolveStaffIdForAppraisal = async (client, userId) => {
+    return await resolveAppraisalUserForeignId(client, 'staff_id', userId);
 };
 
 const getPerformanceSectionScoreColumns = async (client) => {
@@ -1156,9 +1191,9 @@ const createAppraisal = async (req, res) => {
 
         await ensurePerformanceAppraisalSchema(client);
 
-        let supervisorId = await resolveSupervisorStaffId(client, targetUserId, null);
-        if (!supervisorId && currentUser?.role_name === 'Supervisor') {
-            supervisorId = currentUser.id;
+        let supervisorUserId = await resolveSupervisorStaffId(client, targetUserId, null);
+        if (!supervisorUserId && currentUser?.role_name === 'Supervisor') {
+            supervisorUserId = currentUser.id;
         }
 
         const allowedPeriodTypes = ['Quarterly', 'Semi-annually', 'Annual', 'Annually'];
@@ -1180,13 +1215,24 @@ const createAppraisal = async (req, res) => {
         const createAppraisalColumns = new Set(createColumnsResult.rows.map(r => r.column_name));
         const createColumnMeta = new Map(createColumnsResult.rows.map(r => [r.column_name, r]));
         const staffIdNullable = createColumnMeta.get('staff_id')?.is_nullable === 'YES';
+        const supervisorIdNullable = createColumnMeta.get('supervisor_id')?.is_nullable === 'YES';
 
         const sectionBTotalNum = computeSectionBTotal({ kraScores, performanceSections, fallback: sectionBTotal });
         const sectionCTotalNum = computeSectionCTotal({ softSkillScores, fallback: sectionCTotal });
 
+        const resolvedSupervisorId = createAppraisalColumns.has('supervisor_id')
+            ? await resolveAppraisalUserForeignId(client, 'supervisor_id', supervisorUserId)
+            : null;
         const resolvedStaffId = createAppraisalColumns.has('staff_id')
             ? await resolveStaffIdForAppraisal(client, targetUserId)
             : null;
+
+        if (createAppraisalColumns.has('supervisor_id') && !resolvedSupervisorId && !supervisorIdNullable) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+                error: 'Supervisor is required for this appraisal. Please assign a supervisor first.'
+            });
+        }
 
         if (createAppraisalColumns.has('staff_id') && !resolvedStaffId && !staffIdNullable) {
             await client.query('ROLLBACK');
@@ -1258,7 +1304,7 @@ const createAppraisal = async (req, res) => {
             }
             if (createAppraisalColumns.has('supervisor_id')) {
                 restoreFields.push(`supervisor_id = $${restoreParam++}`);
-                restoreValues.push(supervisorId);
+                restoreValues.push(resolvedSupervisorId);
             }
             if (createAppraisalColumns.has('staff_id')) {
                 restoreFields.push(`staff_id = $${restoreParam++}`);
@@ -1416,7 +1462,7 @@ const createAppraisal = async (req, res) => {
 
             if (createAppraisalColumns.has('supervisor_id')) {
                 cols.push('supervisor_id');
-                values.push(supervisorId);
+                values.push(resolvedSupervisorId);
             }
             if (createAppraisalColumns.has('staff_id')) {
                 cols.push('staff_id');
@@ -2327,7 +2373,8 @@ const updateAppraisal = async (req, res) => {
         const targetUserId = userId || existing.rows[0]?.user_id;
         const existingStaffId = existingRow?.staff_id || null;
         if (targetUserId) {
-            const resolvedSupervisorId = await resolveSupervisorStaffId(client, targetUserId, null);
+            const supervisorUserId = await resolveSupervisorStaffId(client, targetUserId, null);
+            const resolvedSupervisorId = await resolveAppraisalUserForeignId(client, 'supervisor_id', supervisorUserId);
             if (resolvedSupervisorId && appraisalColumns.has('supervisor_id')) {
                 updateFields.push(`supervisor_id = $${paramCount++}`);
                 updateValues.push(resolvedSupervisorId);

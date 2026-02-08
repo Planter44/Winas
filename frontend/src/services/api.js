@@ -143,6 +143,7 @@ export const settingsAPI = {
 export const messageAPI = {
   send: (data) => api.post('/messages', data),
   getInbox: (params) => api.get('/messages/inbox', { params }),
+  getSent: () => api.get('/messages/sent'),
   getById: (id) => api.get(`/messages/${id}`),
   getUnreadCount: () => api.get('/messages/unread-count'),
   markAsRead: (id) => api.patch(`/messages/${id}/read`),

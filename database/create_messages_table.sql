@@ -6,8 +6,12 @@ CREATE TABLE IF NOT EXISTS messages (
     content TEXT NOT NULL,
     is_broadcast BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP
+    deleted_at TIMESTAMP,
+    sender_deleted_at TIMESTAMP
 );
+
+ALTER TABLE messages
+    ADD COLUMN IF NOT EXISTS sender_deleted_at TIMESTAMP;
 
 -- Create message recipients table (for individual messages)
 CREATE TABLE IF NOT EXISTS message_recipients (

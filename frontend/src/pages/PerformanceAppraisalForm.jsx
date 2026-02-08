@@ -12,10 +12,51 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
+const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+const normalizeSpecialType = (value) => {
+  const v = String(value || '').trim().toLowerCase();
+  if (v === 'par') return 'PAR';
+  if (v === 'kpi') return 'KPI';
+  return '';
+};
+
+const normalizeKpiCalcType = (value) => {
+  const v = String(value || '').trim().toLowerCase();
+  if (['percentage', 'percentage-based', 'percentage-based weighted', 'percentage weighted', 'percentage-weighted', 'weighted', '1'].includes(v)) {
+    return 'percentage-weighted';
+  }
+  if (['target', 'target-ratio', 'ratio', '2'].includes(v)) return 'target-ratio';
+  if (['compliance', 'compliant', '3'].includes(v)) return 'compliance';
+  return '';
+};
+
+const formatKpiCalcType = (value) => {
+  switch (normalizeKpiCalcType(value)) {
+    case 'percentage-weighted':
+      return 'Percentage-based weighted';
+    case 'target-ratio':
+      return 'Target-ratio';
+    case 'compliance':
+      return 'Compliance';
+    default:
+      return '';
+  }
+};
+
+const getNumericInputWidth = (value, minWidth = 64) => {
+  const length = String(value ?? '').length;
+  const width = Math.max(minWidth, (length + 1) * 10 + 16);
+  return `${width}px`;
+};
+
 // Helper function to create empty performance row with all months
 const createEmptyRow = () => ({
   id: Date.now() + Math.random(),
   selected: false,
+  specialType: '',
+  kpiCalcType: '',
+  parWeight: '',
   pillar: '',
   keyResultArea: '',
   target: '',
@@ -75,6 +116,93 @@ const getWeightFromPercentage = (percentage) => {
   if (value <= 100) return 4;
   if (value <= 110) return 5;
   return 6;
+};
+
+const recalcPerformanceRow = (row, activeMonths) => {
+  const next = { ...row };
+  const activeMonthKeys = new Set((activeMonths || []).map((m) => m.key));
+
+  const specialType = normalizeSpecialType(next.specialType);
+  const kpiCalcType = normalizeKpiCalcType(next.kpiCalcType);
+  const resolvedKpiCalcType = specialType === 'KPI' ? (kpiCalcType || 'percentage-weighted') : kpiCalcType;
+  next.specialType = specialType;
+  next.kpiCalcType = resolvedKpiCalcType;
+
+  const parWeightValue = parseFloat(next.parWeight ?? next.parTarget);
+  const resolvedParWeight = Number.isFinite(parWeightValue) ? parWeightValue : 0;
+  if (specialType === 'PAR') {
+    next.parWeight = Number.isFinite(parWeightValue) ? String(parWeightValue) : '';
+  }
+
+  const roundKpiPercent = (value) => (Number.isFinite(value) ? value.toFixed(2) : '0.00');
+
+  let totalTarget = 0;
+  let totalActual = 0;
+  MONTH_KEYS.forEach((month) => {
+    const target = parseFloat(next[`${month}Target`]) || 0;
+    const actual = parseFloat(next[`${month}Actual`]) || 0;
+    const isActive = activeMonthKeys.has(month);
+
+    if (isActive) {
+      totalTarget += target;
+      totalActual += actual;
+    }
+
+    let percent = 0;
+    if (specialType === 'PAR') {
+      percent = target > 0 && actual > 0 ? Math.round((target / actual) * 100) : 0;
+    } else if (specialType === 'KPI') {
+      let kpiPercent = 0;
+      if (resolvedKpiCalcType === 'target-ratio') {
+        kpiPercent = target > 0 ? (actual / target) * 100 : 0;
+      } else if (resolvedKpiCalcType === 'compliance') {
+        if (target <= 0) {
+          kpiPercent = actual >= target ? 100 : 0;
+        } else if (actual >= target) {
+          kpiPercent = 100;
+        } else {
+          kpiPercent = (actual / target) * 100;
+        }
+      } else {
+        kpiPercent = (actual * target) / 100;
+      }
+      percent = roundKpiPercent(kpiPercent);
+    } else {
+      percent = target > 0 ? Math.round((actual / target) * 100) : 0;
+    }
+
+    next[`${month}Percent`] = percent;
+  });
+
+  let percentAchieved = 0;
+  if (specialType === 'PAR') {
+    const roundedTargetTotal = Math.abs(totalTarget) < 0.5 ? totalTarget : Math.round(totalTarget);
+    next.targetTotal = roundedTargetTotal;
+    next.actualTotal = totalActual;
+    percentAchieved = roundedTargetTotal > 0 && totalActual > 0
+      ? Math.round((roundedTargetTotal / totalActual) * 100 * resolvedParWeight)
+      : 0;
+  } else if (specialType === 'KPI') {
+    const manualTargetTotal = parseFloat(next.targetTotal);
+    const manualActualTotal = parseFloat(next.actualTotal);
+    const resolvedTargetTotal = Number.isFinite(manualTargetTotal) ? manualTargetTotal : 0;
+    const resolvedActualTotal = Number.isFinite(manualActualTotal) ? manualActualTotal : 0;
+    percentAchieved = resolvedTargetTotal > 0
+      ? Math.round((resolvedActualTotal / resolvedTargetTotal) * 100)
+      : 0;
+  } else {
+    next.targetTotal = totalTarget;
+    next.actualTotal = totalActual;
+    percentAchieved = totalTarget > 0
+      ? Math.round((totalActual / totalTarget) * 100)
+      : 0;
+  }
+
+  next.percentAchieved = percentAchieved;
+  next.actualRating = percentAchieved;
+  next.weight = getWeightFromPercentage(percentAchieved);
+  next.weightedAverage = parseFloat((percentAchieved * next.weight).toFixed(2));
+  return next;
 };
 
 const getSoftSkillWeightFromRating = (rating) => {
@@ -138,6 +266,13 @@ const normalizePerformanceSectionsData = (data) => {
       merged.pillar = merged.pillar ?? '';
       merged.keyResultArea = merged.keyResultArea ?? '';
       merged.target = merged.target ?? '';
+      const normalizedSpecialType = normalizeSpecialType(merged.specialType);
+      const normalizedKpiCalcType = normalizeKpiCalcType(merged.kpiCalcType);
+      merged.specialType = normalizedSpecialType;
+      merged.kpiCalcType = normalizedSpecialType === 'KPI'
+        ? (normalizedKpiCalcType || 'percentage-weighted')
+        : normalizedKpiCalcType;
+      merged.parWeight = merged.parWeight ?? merged.parTarget ?? '';
 
       const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
       months.forEach((m) => {
@@ -457,39 +592,7 @@ const PerformanceAppraisalForm = () => {
     setPerformanceSections(prev => {
       const updated = prev.map((s) => {
         const rows = Array.isArray(s?.rows) ? s.rows : [];
-        const nextRows = rows.map((r) => {
-          const row = { ...r };
-
-          let totalTarget = 0;
-          let totalActual = 0;
-          const allMonths = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-          allMonths.forEach((month) => {
-            const target = parseFloat(row[`${month}Target`]) || 0;
-            const actual = parseFloat(row[`${month}Actual`]) || 0;
-
-            if (activeMonths.some(m => m.key === month)) {
-              totalTarget += target;
-              totalActual += actual;
-            }
-
-            if (target > 0) {
-              row[`${month}Percent`] = Math.round((actual / target) * 100);
-            } else {
-              row[`${month}Percent`] = 0;
-            }
-          });
-
-          row.targetTotal = totalTarget;
-          row.actualTotal = totalActual;
-
-          const percentAchieved = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
-          row.percentAchieved = percentAchieved;
-          row.actualRating = percentAchieved;
-          row.weight = getWeightFromPercentage(percentAchieved);
-          row.weightedAverage = parseFloat((percentAchieved * row.weight).toFixed(2));
-
-          return row;
-        });
+        const nextRows = rows.map((r) => recalcPerformanceRow(r, activeMonths));
 
         return {
           ...s,
@@ -830,6 +933,48 @@ const PerformanceAppraisalForm = () => {
     });
   };
 
+  const promptSpecialRowConfig = (currentRow = {}) => {
+    const currentType = normalizeSpecialType(currentRow.specialType);
+    let specialType = '';
+
+    while (true) {
+      const input = window.prompt('Special row type (PAR or KPI):', currentType || '');
+      if (input === null) return null;
+      const resolved = normalizeSpecialType(input);
+      if (resolved) {
+        specialType = resolved;
+        break;
+      }
+      window.alert('Please enter PAR or KPI.');
+    }
+
+    if (specialType === 'PAR') {
+      while (true) {
+        const input = window.prompt('Enter PAR Weight (numeric):', currentRow.parWeight ?? currentRow.parTarget ?? '');
+        if (input === null) return null;
+        const num = parseFloat(input);
+        if (Number.isFinite(num)) {
+          return { specialType: 'PAR', kpiCalcType: '', parWeight: String(num) };
+        }
+        window.alert('Please enter a valid numeric PAR Weight.');
+      }
+    }
+
+    const defaultCalcType = formatKpiCalcType(currentRow.kpiCalcType) || 'Percentage-based weighted';
+    while (true) {
+      const input = window.prompt(
+        'KPI calculation type: 1=Percentage-based weighted, 2=Target-ratio, 3=Compliance',
+        defaultCalcType
+      );
+      if (input === null) return null;
+      const normalized = input.trim() === '' ? 'percentage-based weighted' : normalizeKpiCalcType(input);
+      if (normalized) {
+        return { specialType: 'KPI', kpiCalcType: normalized, parWeight: '' };
+      }
+      window.alert('Please enter 1, 2, 3, or a valid KPI calculation type.');
+    }
+  };
+
   // ===== SECTION B HANDLERS =====
   
   // Handle performance row changes
@@ -838,47 +983,8 @@ const PerformanceAppraisalForm = () => {
       const updated = [...prev];
       const section = { ...updated[sectionIndex] };
       const rows = [...section.rows];
-      const row = { ...rows[rowIndex], [field]: value };
-      
-      // Get active months based on period type
       const activeMonths = getMonthsForPeriod(employeeData.periodType, employeeData.periodQuarter, employeeData.periodSemi);
-      let totalTarget = 0;
-      let totalActual = 0;
-      
-      // Calculate for all months (to keep data integrity)
-      const allMonths = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-      allMonths.forEach(month => {
-        const target = parseFloat(row[`${month}Target`]) || 0;
-        const actual = parseFloat(row[`${month}Actual`]) || 0;
-        
-        // Only count months that are active for the period
-        if (activeMonths.some(m => m.key === month)) {
-          totalTarget += target;
-          totalActual += actual;
-        }
-        
-        // Calculate monthly percentage (rounded to whole number)
-        if (target > 0) {
-          row[`${month}Percent`] = Math.round((actual / target) * 100);
-        } else {
-          row[`${month}Percent`] = 0;
-        }
-      });
-      
-      row.targetTotal = totalTarget;
-      row.actualTotal = totalActual;
-      
-      // Calculate overall percentage achieved
-      const percentAchieved = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
-      row.percentAchieved = percentAchieved;
-      row.actualRating = percentAchieved;
-      
-      // Calculate weight based on percentage
-      row.weight = getWeightFromPercentage(percentAchieved);
-      
-      // Calculate weighted average (percentage * weight)
-      row.weightedAverage = parseFloat((percentAchieved * row.weight).toFixed(2));
-      
+      const row = recalcPerformanceRow({ ...rows[rowIndex], [field]: value }, activeMonths);
       rows[rowIndex] = row;
       section.rows = rows;
       
@@ -898,6 +1004,42 @@ const PerformanceAppraisalForm = () => {
       const section = { ...updated[sectionIndex] };
       section.rows = [...section.rows, createEmptyRow()];
       updated[sectionIndex] = section;
+      return updated;
+    });
+  };
+
+  const addOrConvertSpecialRow = (sectionIndex) => {
+    const section = performanceSections[sectionIndex];
+    if (!section) return;
+
+    const selectedRow = (section.rows || []).find((row) => row.selected);
+    const config = promptSpecialRowConfig(selectedRow || {});
+    if (!config) return;
+
+    const activeMonths = getMonthsForPeriod(employeeData.periodType, employeeData.periodQuarter, employeeData.periodSemi);
+
+    setPerformanceSections(prev => {
+      const updated = [...prev];
+      const nextSection = { ...updated[sectionIndex] };
+      const rows = [...nextSection.rows];
+      const selectedIndexes = rows.reduce((acc, row, idx) => {
+        if (row.selected) acc.push(idx);
+        return acc;
+      }, []);
+
+      if (selectedIndexes.length > 0) {
+        selectedIndexes.forEach((idx) => {
+          rows[idx] = recalcPerformanceRow({ ...rows[idx], ...config }, activeMonths);
+        });
+      } else {
+        rows.push(recalcPerformanceRow({ ...createEmptyRow(), ...config }, activeMonths));
+      }
+
+      nextSection.rows = rows;
+      nextSection.subtotalWeight = rows.reduce((sum, r) => sum + (parseFloat(r.weight) || 0), 0);
+      nextSection.subtotalWeightedAverage = rows.reduce((sum, r) => sum + (parseFloat(r.weightedAverage) || 0), 0);
+
+      updated[sectionIndex] = nextSection;
       return updated;
     });
   };
@@ -958,7 +1100,22 @@ const PerformanceAppraisalForm = () => {
     
     // Build headers dynamically based on active months
     const monthHeaders = activeMonths.flatMap(m => [`${m.label} Target`, `${m.label} Actual`, `${m.label} %`]);
-    const headers = ['Section', 'Pillar', 'Key Result Area', 'Target', ...monthHeaders, 'Total Target', 'Total Actual', '% Achieved', 'Weight', 'Actual Rating', 'Weighted Average'];
+    const headers = [
+      'Section',
+      'Pillar',
+      'Key Result Area',
+      'Target',
+      'Special Type',
+      'KPI Calc Type',
+      'PAR Weight',
+      ...monthHeaders,
+      'Total Target',
+      'Total Actual',
+      '% Achieved',
+      'Weight',
+      'Actual Rating',
+      'Weighted Average'
+    ];
     
     let allRows = [];
     performanceSections.forEach(section => {
@@ -973,6 +1130,9 @@ const PerformanceAppraisalForm = () => {
           `"${row.pillar || ''}"`,
           `"${row.keyResultArea || ''}"`,
           `"${row.target || ''}"`,
+          `"${row.specialType || ''}"`,
+          `"${formatKpiCalcType(row.kpiCalcType) || row.kpiCalcType || ''}"`,
+          `"${row.parWeight || ''}"`,
           ...monthData,
           row.targetTotal || 0,
           row.actualTotal || 0,
@@ -983,7 +1143,22 @@ const PerformanceAppraisalForm = () => {
         ].join(','));
       });
       // Add subtotal row
-      allRows.push([`"SUBTOTAL: ${section.name}"`, '', '', '', ...Array(activeMonths.length * 3).fill(''), '', '', '', section.subtotalWeight, '', (parseFloat(section.subtotalWeightedAverage) || 0).toFixed(2)].join(','));
+      allRows.push([
+        `"SUBTOTAL: ${section.name}"`,
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        ...Array(activeMonths.length * 3).fill(''),
+        '',
+        '',
+        '',
+        section.subtotalWeight,
+        '',
+        (parseFloat(section.subtotalWeightedAverage) || 0).toFixed(2)
+      ].join(','));
       allRows.push(''); // Empty row between sections
     });
     
@@ -1052,6 +1227,11 @@ const PerformanceAppraisalForm = () => {
     const idxPillar = headers.findIndex((h) => normalize(h) === 'pillar');
     const idxKra = headers.findIndex((h) => normalize(h) === 'key result area');
     const idxTargetDesc = headers.findIndex((h) => normalize(h) === 'target');
+    const idxSpecialType = headers.findIndex((h) => ['special type', 'special', 'row type', 'special row type'].includes(normalize(h)));
+    const idxKpiCalcType = headers.findIndex((h) => ['kpi calc type', 'kpi calculation type', 'kpi type', 'kpi calculation'].includes(normalize(h)));
+    const idxParWeight = headers.findIndex((h) => ['par weight', 'par target', 'par target value', 'par value'].includes(normalize(h)));
+    const idxTotalTarget = headers.findIndex((h) => normalize(h) === 'total target');
+    const idxTotalActual = headers.findIndex((h) => normalize(h) === 'total actual');
 
     const monthLabelToKey = {
       jan: 'jan', feb: 'feb', mar: 'mar', apr: 'apr', may: 'may', jun: 'jun',
@@ -1069,38 +1249,7 @@ const PerformanceAppraisalForm = () => {
 
     const activeMonths = getMonthsForPeriod(employeeData.periodType, employeeData.periodQuarter, employeeData.periodSemi);
     const activeSet = new Set(activeMonths.map((m) => m.key));
-
-    const recalcRow = (row) => {
-      let totalTarget = 0;
-      let totalActual = 0;
-
-      const allMonths = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-      allMonths.forEach((month) => {
-        const target = parseFloat(row[`${month}Target`]) || 0;
-        const actual = parseFloat(row[`${month}Actual`]) || 0;
-
-        if (activeSet.has(month)) {
-          totalTarget += target;
-          totalActual += actual;
-        }
-
-        if (target > 0) {
-          row[`${month}Percent`] = Math.round((actual / target) * 100);
-        } else {
-          row[`${month}Percent`] = 0;
-        }
-      });
-
-      row.targetTotal = totalTarget;
-      row.actualTotal = totalActual;
-
-      const percentAchieved = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
-      row.percentAchieved = percentAchieved;
-      row.actualRating = percentAchieved;
-      row.weight = getWeightFromPercentage(percentAchieved);
-      row.weightedAverage = parseFloat((percentAchieved * row.weight).toFixed(2));
-      return row;
-    };
+    const recalcRow = (row) => recalcPerformanceRow(row, activeMonths);
 
     const grouped = new Map();
     const unknownSections = [];
@@ -1133,6 +1282,13 @@ const PerformanceAppraisalForm = () => {
       row.pillar = pillar;
       row.keyResultArea = keyResultArea;
       row.target = target;
+      if (idxSpecialType >= 0) row.specialType = String(raw[idxSpecialType] ?? '').trim();
+      if (idxKpiCalcType >= 0) row.kpiCalcType = String(raw[idxKpiCalcType] ?? '').trim();
+      if (idxParWeight >= 0) row.parWeight = String(raw[idxParWeight] ?? '').trim();
+      const rawTotalTarget = idxTotalTarget >= 0 ? String(raw[idxTotalTarget] ?? '').trim() : '';
+      const rawTotalActual = idxTotalActual >= 0 ? String(raw[idxTotalActual] ?? '').trim() : '';
+      if (idxTotalTarget >= 0) row.targetTotal = rawTotalTarget;
+      if (idxTotalActual >= 0) row.actualTotal = rawTotalActual;
 
       monthCols.forEach(({ idx, monthKey, kind }) => {
         const value = String(raw[idx] ?? '').trim();
@@ -1140,6 +1296,31 @@ const PerformanceAppraisalForm = () => {
         if (kind === 'target') row[`${monthKey}Target`] = value;
         if (kind === 'actual') row[`${monthKey}Actual`] = value;
       });
+
+      const derivedTotals = activeMonths.reduce(
+        (acc, month) => {
+          const targetVal = parseFloat(row[`${month.key}Target`]) || 0;
+          const actualVal = parseFloat(row[`${month.key}Actual`]) || 0;
+          acc.target += targetVal;
+          acc.actual += actualVal;
+          return acc;
+        },
+        { target: 0, actual: 0 }
+      );
+      if (normalizeSpecialType(row.specialType) === 'KPI') {
+        const parsedTarget = parseFloat(row.targetTotal);
+        const parsedActual = parseFloat(row.actualTotal);
+        const shouldDeriveTarget = idxTotalTarget < 0
+          || rawTotalTarget === ''
+          || !Number.isFinite(parsedTarget)
+          || (parsedTarget === 0 && derivedTotals.target !== 0);
+        const shouldDeriveActual = idxTotalActual < 0
+          || rawTotalActual === ''
+          || !Number.isFinite(parsedActual)
+          || (parsedActual === 0 && derivedTotals.actual !== 0);
+        if (shouldDeriveTarget) row.targetTotal = derivedTotals.target;
+        if (shouldDeriveActual) row.actualTotal = derivedTotals.actual;
+      }
 
       recalcRow(row);
 
@@ -1896,6 +2077,14 @@ const PerformanceAppraisalForm = () => {
                         </button>
                         <button
                           type="button"
+                          onClick={() => addOrConvertSpecialRow(sectionIndex)}
+                          className="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                          disabled={!canEditSectionB}
+                        >
+                          <Plus className="w-4 h-4 mr-1" /> Special Row
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => deleteSelectedRows(sectionIndex)}
                           className="inline-flex items-center px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
                           disabled={!canEditSectionB}
@@ -1914,6 +2103,9 @@ const PerformanceAppraisalForm = () => {
                             <><Check className="w-4 h-4 mr-1" /> Save Changes</>
                           )}
                         </button>
+                      </div>
+                      <div className="w-full text-xs text-gray-500">
+                        Tip: select row(s) then click "Special Row" to convert to PAR or KPI.
                       </div>
                     </div>
                     
@@ -2002,6 +2194,23 @@ const PerformanceAppraisalForm = () => {
                                     placeholder="Target description..."
                                     disabled={!canEditSectionB}
                                   />
+                                  {row.specialType && (
+                                    <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
+                                      <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-semibold uppercase">
+                                        {row.specialType}
+                                      </span>
+                                      {row.specialType === 'PAR' && (
+                                        <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                          PAR Weight: {row.parWeight || '0'}
+                                        </span>
+                                      )}
+                                      {row.specialType === 'KPI' && (
+                                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                                          {formatKpiCalcType(row.kpiCalcType) || 'Percentage-based weighted'}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                 </td>
                                 {/* Dynamic Monthly columns based on period type */}
                                 {activeMonths.map(m => (
@@ -2011,7 +2220,8 @@ const PerformanceAppraisalForm = () => {
                                         type="number"
                                         value={row[`${m.key}Target`]}
                                         onChange={(e) => handlePerformanceRowChange(sectionIndex, rowIndex, `${m.key}Target`, e.target.value)}
-                                        className="w-16 p-1 text-center border border-gray-200 rounded focus:ring-2 focus:ring-pink-500"
+                                        className="p-1 text-center border border-gray-200 rounded focus:ring-2 focus:ring-pink-500"
+                                        style={{ width: getNumericInputWidth(row[`${m.key}Target`]) }}
                                         placeholder="0"
                                         disabled={!canEditSectionB}
                                       />
@@ -2021,7 +2231,8 @@ const PerformanceAppraisalForm = () => {
                                         type="number"
                                         value={row[`${m.key}Actual`]}
                                         onChange={(e) => handlePerformanceRowChange(sectionIndex, rowIndex, `${m.key}Actual`, e.target.value)}
-                                        className="w-16 p-1 text-center border border-gray-200 rounded focus:ring-2 focus:ring-pink-500"
+                                        className="p-1 text-center border border-gray-200 rounded focus:ring-2 focus:ring-pink-500"
+                                        style={{ width: getNumericInputWidth(row[`${m.key}Actual`]) }}
                                         placeholder="0"
                                         disabled={!canEditSectionB}
                                       />
@@ -2032,8 +2243,36 @@ const PerformanceAppraisalForm = () => {
                                   </React.Fragment>
                                 ))}
                                 {/* Totals */}
-                                <td className="border border-gray-300 p-2 bg-indigo-100 text-center font-bold align-top">{row.targetTotal}</td>
-                                <td className="border border-gray-300 p-2 bg-indigo-100 text-center font-bold align-top">{row.actualTotal}</td>
+                                <td className="border border-gray-300 p-2 bg-indigo-100 text-center font-bold align-top">
+                                  {row.specialType === 'KPI' ? (
+                                    <input
+                                      type="number"
+                                      value={row.targetTotal}
+                                      onChange={(e) => handlePerformanceRowChange(sectionIndex, rowIndex, 'targetTotal', e.target.value)}
+                                      className="p-1 text-center border border-gray-200 rounded focus:ring-2 focus:ring-pink-500"
+                                      style={{ width: getNumericInputWidth(row.targetTotal) }}
+                                      placeholder="0"
+                                      disabled={!canEditSectionB}
+                                    />
+                                  ) : (
+                                    row.targetTotal
+                                  )}
+                                </td>
+                                <td className="border border-gray-300 p-2 bg-indigo-100 text-center font-bold align-top">
+                                  {row.specialType === 'KPI' ? (
+                                    <input
+                                      type="number"
+                                      value={row.actualTotal}
+                                      onChange={(e) => handlePerformanceRowChange(sectionIndex, rowIndex, 'actualTotal', e.target.value)}
+                                      className="p-1 text-center border border-gray-200 rounded focus:ring-2 focus:ring-pink-500"
+                                      style={{ width: getNumericInputWidth(row.actualTotal) }}
+                                      placeholder="0"
+                                      disabled={!canEditSectionB}
+                                    />
+                                  ) : (
+                                    row.actualTotal
+                                  )}
+                                </td>
                                 <td className="border border-gray-300 p-2 bg-purple-100 text-center font-bold align-top">{row.percentAchieved}%</td>
                                 <td className="border border-gray-300 p-2 bg-orange-100 text-center font-bold align-top">{row.weight}</td>
                                 <td className="border border-gray-300 p-2 bg-pink-100 text-center font-bold align-top">{row.actualRating}</td>

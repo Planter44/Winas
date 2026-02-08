@@ -159,7 +159,7 @@ const Dashboard = () => {
   );
 
   const renderSupervisorDashboard = () => (
-    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
       <Link to="/leaves" {...getCardProps(0, 'hover:shadow-md transition-shadow')}>
         <div className="flex items-center justify-between">
           <div>
@@ -184,7 +184,22 @@ const Dashboard = () => {
         </div>
       </Link>
 
-      <div {...getCardProps(2)}>
+      <Link
+        to="/performance-appraisals?scope=mine"
+        {...getCardProps(2, 'hover:shadow-md transition-shadow')}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-600 mb-1">My Appraisals</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {stats?.myPerformanceAppraisalsCount ?? stats?.myAppraisalsCount ?? 0}
+            </p>
+          </div>
+          <Award className="text-primary-500" size={32} />
+        </div>
+      </Link>
+
+      <div {...getCardProps(3)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Total Departments</p>
@@ -199,7 +214,7 @@ const Dashboard = () => {
   );
 
   const renderHODDashboard = () => (
-    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
       <Link to="/my-team" {...getCardProps(0, 'hover:shadow-md transition-shadow')}>
         <div className="flex items-center justify-between">
           <div>
@@ -224,7 +239,22 @@ const Dashboard = () => {
         </div>
       </Link>
 
-      <div {...getCardProps(2)}>
+      <Link
+        to="/performance-appraisals?scope=mine"
+        {...getCardProps(2, 'hover:shadow-md transition-shadow')}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-600 mb-1">My Appraisals</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {stats?.myPerformanceAppraisalsCount ?? stats?.myAppraisalsCount ?? 0}
+            </p>
+          </div>
+          <Award className="text-primary-500" size={32} />
+        </div>
+      </Link>
+
+      <div {...getCardProps(3)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-pink-700 mb-1 font-medium">Total Departments</p>

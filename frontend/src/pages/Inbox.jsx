@@ -9,17 +9,54 @@ const Inbox = () => {
   const [messages, setMessages] = useState([]);
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [mailbox, setMailbox] = useState('inbox');
   const [filter, setFilter] = useState('all');
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [replyData, setReplyData] = useState({ subject: '', content: '' });
   const [sending, setSending] = useState(false);
+  const isInbox = mailbox === 'inbox';
+
+  const getRecipientSummary = (message) => {
+    if (!message) return '';
+    if (message.is_broadcast) {
+      return `Broadcast: ${message.broadcast_department || 'All'}`;
+    }
+    if (message.recipient_names) return message.recipient_names;
+    if (Number.isFinite(message.recipient_count)) {
+      return `Recipients: ${message.recipient_count}`;
+    }
+    return 'Recipients';
+  };
+
+  const getRecipientChips = (message) => {
+    if (!message) return [];
+    if (message.is_broadcast) {
+      return [`Broadcast: ${message.broadcast_department || 'All'}`];
+    }
+    const recipients = (message.recipient_names || '')
+      .split(',')
+      .map((name) => name.trim())
+      .filter(Boolean);
+    if (recipients.length > 0) return recipients;
+    if (Number.isFinite(message.recipient_count)) {
+      return [`Recipients: ${message.recipient_count}`];
+    }
+    return ['Recipients'];
+  };
 
   useEffect(() => {
     fetchMessages();
-  }, [filter]);
+  }, [filter, mailbox]);
 
   const fetchMessages = async () => {
     try {
+      setLoading(true);
+      if (mailbox === 'sent') {
+        const response = await messageAPI.getSent();
+        setMessages(response.data);
+        return;
+      }
+
       const params = filter === 'unread' ? { unreadOnly: true } : {};
       const response = await messageAPI.getInbox(params);
       setMessages(response.data);
@@ -31,6 +68,11 @@ const Inbox = () => {
   };
 
   const handleViewMessage = async (message) => {
+    if (!isInbox) {
+      setSelectedMessage(message);
+      return;
+    }
+
     try {
       const response = await messageAPI.getById(message.id);
       setSelectedMessage(response.data);
@@ -59,7 +101,7 @@ const Inbox = () => {
   };
 
   const handleReply = () => {
-    if (selectedMessage) {
+    if (selectedMessage && isInbox) {
       setReplyData({
         subject: `Re: ${selectedMessage.subject}`,
         content: ''
@@ -93,6 +135,8 @@ const Inbox = () => {
     }
   };
 
+  const recipientChips = getRecipientChips(selectedMessage);
+
   if (loading) {
     return (
       <Layout>
@@ -106,29 +150,58 @@ const Inbox = () => {
   return (
     <Layout>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Inbox</h1>
-        <p className="text-gray-600">View and manage your messages</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Messages</h1>
+        <p className="text-gray-600">View and manage your inbox and sent messages</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Message List */}
         <div className="lg:col-span-1">
           <div className="card">
-            <div className="flex items-center justify-between mb-4 gap-4">
-              <h2 className="font-semibold text-gray-900 text-lg">Messages</h2>
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="input-field text-sm py-1.5 px-3"
-              >
-                <option value="all">All</option>
-                <option value="unread">Unread</option>
-              </select>
+            <div className="flex flex-wrap items-center justify-between mb-4 gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMailbox('inbox');
+                    setSelectedMessage(null);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${
+                    isInbox ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-600 border-gray-200'
+                  }`}
+                >
+                  Inbox
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMailbox('sent');
+                    setSelectedMessage(null);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${
+                    !isInbox ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-600 border-gray-200'
+                  }`}
+                >
+                  Sent
+                </button>
+              </div>
+              {isInbox && (
+                <select
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  className="input-field text-sm py-1.5 px-3"
+                >
+                  <option value="all">All</option>
+                  <option value="unread">Unread</option>
+                </select>
+              )}
             </div>
 
             <div className="space-y-2 max-h-[600px] overflow-y-auto">
               {messages.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">No messages</p>
+                <p className="text-center text-gray-500 py-8">
+                  {isInbox ? 'No messages' : 'No sent messages'}
+                </p>
               ) : (
                 messages.map((message) => (
                   <div
@@ -137,29 +210,48 @@ const Inbox = () => {
                     className={`p-3 rounded-lg cursor-pointer transition-colors ${
                       selectedMessage?.id === message.id
                         ? 'bg-primary-50 border border-primary-200'
-                        : message.is_read
+                        : isInbox && message.is_read
                         ? 'bg-gray-50 hover:bg-gray-100'
-                        : 'bg-blue-50 hover:bg-blue-100 border border-blue-200'
+                        : isInbox
+                        ? 'bg-blue-50 hover:bg-blue-100 border border-blue-200'
+                        : 'bg-gray-50 hover:bg-gray-100'
                     }`}
                   >
                     <div className="flex items-start justify-between mb-1">
                       <div className="flex items-center">
-                        {message.is_read ? (
-                          <MailOpen size={16} className="text-gray-400 mr-2" />
+                        {isInbox ? (
+                          message.is_read ? (
+                            <MailOpen size={16} className="text-gray-400 mr-2" />
+                          ) : (
+                            <Mail size={16} className="text-blue-500 mr-2" />
+                          )
                         ) : (
-                          <Mail size={16} className="text-blue-500 mr-2" />
+                          <Send size={16} className="text-gray-400 mr-2" />
                         )}
-                        <span className={`text-sm font-medium ${message.is_read ? 'text-gray-700' : 'text-gray-900'}`}>
-                          {message.sender_first_name} {message.sender_last_name}
+                        <span
+                          className={`text-sm font-medium ${
+                            isInbox && !message.is_read ? 'text-gray-900' : 'text-gray-700'
+                          }`}
+                        >
+                          {isInbox
+                            ? `${message.sender_first_name || ''} ${message.sender_last_name || ''}`.trim()
+                            : getRecipientSummary(message)}
                         </span>
                       </div>
                       <span className="text-xs text-gray-500">
                         {new Date(message.created_at).toLocaleDateString()}
                       </span>
                     </div>
-                    <p className={`text-sm ${message.is_read ? 'text-gray-600' : 'text-gray-900 font-medium'} truncate`}>
+                    <p className={`text-sm ${isInbox && !message.is_read ? 'text-gray-900 font-medium' : 'text-gray-600'} truncate`}>
                       {message.subject}
                     </p>
+                    {!isInbox && (
+                      <p className="text-xs text-gray-500 truncate mt-1">
+                        {message.is_broadcast
+                          ? `Broadcast: ${message.broadcast_department || 'All'}`
+                          : `Recipients: ${message.recipient_count || 0}`}
+                      </p>
+                    )}
                   </div>
                 ))
               )}
@@ -175,30 +267,61 @@ const Inbox = () => {
                 <div className="flex-1 min-w-0">
                   <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words">{selectedMessage.subject}</h2>
                   <div className="flex flex-wrap items-center text-xs sm:text-sm text-gray-600 gap-1">
-                    <span className="font-medium">From:</span>
-                    <span>{selectedMessage.sender_first_name} {selectedMessage.sender_last_name}</span>
-                    <span className="hidden sm:inline mx-1">•</span>
-                    <span>{selectedMessage.sender_role}</span>
+                    <span className="font-medium">{isInbox ? 'From:' : 'To:'}</span>
+                    {isInbox ? (
+                      <span>
+                        {`${selectedMessage.sender_first_name || ''} ${selectedMessage.sender_last_name || ''}`.trim()}
+                      </span>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-1">
+                        {recipientChips.map((recipient, index) => (
+                          <span
+                            key={`${recipient}-${index}`}
+                            className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700"
+                          >
+                            {recipient}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {isInbox && (
+                      <>
+                        <span className="hidden sm:inline mx-1">•</span>
+                        <span>{selectedMessage.sender_role}</span>
+                      </>
+                    )}
                     <span className="hidden sm:inline mx-1">•</span>
                     <span className="w-full sm:w-auto">{new Date(selectedMessage.created_at).toLocaleString()}</span>
                   </div>
                 </div>
-                <div className="flex gap-2 flex-shrink-0">
-                  <button
-                    onClick={handleReply}
-                    className="btn-primary flex items-center text-xs sm:text-sm px-2 sm:px-4"
-                  >
-                    <Reply size={16} className="mr-1 sm:mr-2" />
-                    Reply
-                  </button>
-                  <button
-                    onClick={() => handleDeleteMessage(selectedMessage.id)}
-                    className="btn-danger flex items-center text-xs sm:text-sm px-2 sm:px-4"
-                  >
-                    <Trash2 size={16} className="mr-1 sm:mr-2" />
-                    Delete
-                  </button>
-                </div>
+                {isInbox ? (
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={handleReply}
+                      className="btn-primary flex items-center text-xs sm:text-sm px-2 sm:px-4"
+                    >
+                      <Reply size={16} className="mr-1 sm:mr-2" />
+                      Reply
+                    </button>
+                    <button
+                      onClick={() => handleDeleteMessage(selectedMessage.id)}
+                      className="btn-danger flex items-center text-xs sm:text-sm px-2 sm:px-4"
+                    >
+                      <Trash2 size={16} className="mr-1 sm:mr-2" />
+                      Delete
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => handleDeleteMessage(selectedMessage.id)}
+                      className="btn-danger flex items-center text-xs sm:text-sm px-2 sm:px-4"
+                    >
+                      <Trash2 size={16} className="mr-1 sm:mr-2" />
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="prose max-w-none">

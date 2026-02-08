@@ -62,6 +62,25 @@ const getDashboardStats = async (req, res) => {
             );
             stats.teamSize = parseInt(teamSize.rows[0].count);
 
+            const myAppraisals = await db.query(
+                `SELECT COUNT(*) as count FROM appraisals 
+                 WHERE user_id = $1 AND period_year = $2 AND deleted_at IS NULL`,
+                [currentUser.id, currentYear]
+            );
+            stats.myAppraisalsCount = parseInt(myAppraisals.rows[0].count);
+
+            try {
+                const myPerformanceAppraisals = await db.query(
+                    `SELECT COUNT(*) as count
+                     FROM performance_appraisals
+                     WHERE user_id = $1 AND period_year = $2 AND deleted_at IS NULL`,
+                    [currentUser.id, currentYear]
+                );
+                stats.myPerformanceAppraisalsCount = parseInt(myPerformanceAppraisals.rows[0].count);
+            } catch (e) {
+                stats.myPerformanceAppraisalsCount = 0;
+            }
+
         } else if (currentUser.role_name === 'HR') {
             const leaveStats = await db.query(
                 `SELECT 
@@ -114,6 +133,25 @@ const getDashboardStats = async (req, res) => {
                 [currentUser.department_id]
             );
             stats.departmentPendingLeaves = parseInt(deptLeaves.rows[0].count);
+
+            const myAppraisals = await db.query(
+                `SELECT COUNT(*) as count FROM appraisals 
+                 WHERE user_id = $1 AND period_year = $2 AND deleted_at IS NULL`,
+                [currentUser.id, currentYear]
+            );
+            stats.myAppraisalsCount = parseInt(myAppraisals.rows[0].count);
+
+            try {
+                const myPerformanceAppraisals = await db.query(
+                    `SELECT COUNT(*) as count
+                     FROM performance_appraisals
+                     WHERE user_id = $1 AND period_year = $2 AND deleted_at IS NULL`,
+                    [currentUser.id, currentYear]
+                );
+                stats.myPerformanceAppraisalsCount = parseInt(myPerformanceAppraisals.rows[0].count);
+            } catch (e) {
+                stats.myPerformanceAppraisalsCount = 0;
+            }
 
         } else if (currentUser.role_name === 'CEO' || currentUser.role_name === 'Super Admin') {
             const leaveStats = await db.query(

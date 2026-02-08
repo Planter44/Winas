@@ -1,6 +1,23 @@
 const db = require('../database/db');
 const { logAudit } = require('../middleware/audit');
 
+const hasColumn = async (tableName, columnName) => {
+    try {
+        const result = await db.query(
+            `SELECT 1
+             FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = $1
+               AND column_name = $2
+             LIMIT 1`,
+            [tableName, columnName]
+        );
+        return result.rows.length > 0;
+    } catch (error) {
+        return false;
+    }
+};
+
 const sendMessage = async (req, res) => {
     const client = await db.pool.connect();
     
@@ -108,6 +125,55 @@ const getInbox = async (req, res) => {
     }
 };
 
+const getSent = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const hasSenderDeletedAt = await hasColumn('messages', 'sender_deleted_at');
+        const whereClauses = ['m.sender_id = $1', 'm.deleted_at IS NULL'];
+        if (hasSenderDeletedAt) {
+            whereClauses.push('m.sender_deleted_at IS NULL');
+        }
+
+        const result = await db.query(
+            `SELECT m.id, m.subject, m.content, m.is_broadcast, m.created_at,
+                    u.id as sender_id, sp.first_name as sender_first_name,
+                    sp.last_name as sender_last_name, r.name as sender_role,
+                    MAX(d.name) as broadcast_department,
+                    CASE
+                        WHEN m.is_broadcast THEN COALESCE(MAX(d.name), 'Broadcast')
+                        ELSE COALESCE(
+                            string_agg(
+                                DISTINCT COALESCE(NULLIF(concat_ws(' ', rp.first_name, rp.last_name), ''), ru.email),
+                                ', '
+                            ),
+                            ''
+                        )
+                    END as recipient_names,
+                    COUNT(DISTINCT mr.recipient_id)::int as recipient_count
+             FROM messages m
+             LEFT JOIN message_recipients mr
+                ON m.id = mr.message_id
+             LEFT JOIN users ru ON mr.recipient_id = ru.id
+             LEFT JOIN staff_profiles rp ON ru.id = rp.user_id
+             LEFT JOIN message_broadcast_groups mbg ON mbg.message_id = m.id
+             LEFT JOIN departments d ON mbg.department_id = d.id
+             INNER JOIN users u ON m.sender_id = u.id
+             LEFT JOIN staff_profiles sp ON u.id = sp.user_id
+             LEFT JOIN roles r ON u.role_id = r.id
+             WHERE ${whereClauses.join(' AND ')}
+             GROUP BY m.id, u.id, sp.first_name, sp.last_name, r.name
+             ORDER BY m.created_at DESC`,
+            [userId]
+        );
+
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Get sent messages error:', error);
+        res.status(500).json({ error: 'Failed to fetch sent messages' });
+    }
+};
+
 const getMessageById = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -188,10 +254,23 @@ const deleteMessage = async (req, res) => {
         const userId = req.user.id;
         const { id } = req.params;
 
-        await db.query(
-            'UPDATE message_recipients SET deleted_at = CURRENT_TIMESTAMP WHERE message_id = $1 AND recipient_id = $2',
+        const senderResult = await db.query(
+            'UPDATE messages SET sender_deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND sender_id = $2 AND sender_deleted_at IS NULL RETURNING id',
             [id, userId]
         );
+
+        if (senderResult.rowCount > 0) {
+            return res.json({ message: 'Message deleted successfully' });
+        }
+
+        const recipientResult = await db.query(
+            'UPDATE message_recipients SET deleted_at = CURRENT_TIMESTAMP WHERE message_id = $1 AND recipient_id = $2 AND deleted_at IS NULL RETURNING id',
+            [id, userId]
+        );
+
+        if (recipientResult.rowCount === 0) {
+            return res.status(404).json({ error: 'Message not found' });
+        }
 
         res.json({ message: 'Message deleted successfully' });
     } catch (error) {
@@ -203,6 +282,7 @@ const deleteMessage = async (req, res) => {
 module.exports = {
     sendMessage,
     getInbox,
+    getSent,
     getMessageById,
     getUnreadCount,
     markAsRead,

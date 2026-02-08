@@ -191,3 +191,42 @@ body {
     @apply badge bg-blue-100 text-blue-800;
   }
 }
+
+@media print {
+  body {
+    background-color: #ffffff;
+  }
+
+  .print-table-wrapper {
+    overflow: visible !important;
+  }
+
+  .print-table {
+    width: 100% !important;
+    table-layout: auto;
+  }
+
+  .print-table th,
+  .print-table td {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .print-table thead {
+    display: table-header-group;
+  }
+
+  .print-table tfoot {
+    display: table-footer-group;
+  }
+
+  .print-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

@@ -29,6 +29,7 @@ const Layout = ({ children }) => {
   const companyLogoUrl = getSetting('company_logo_url', '');
   const footerEnabled = String(getSetting('footer_enabled', 'true')).toLowerCase() !== 'false';
   const footerContent = getSetting('footer_content', '© 2024 Winas Sacco. All rights reserved.');
+  const notificationCount = pendingLeaveCount + unreadMessageCount;
   const hamburgerStyle = getSetting('hamburger_style', 'classic');
   const hamburgerStyleClass = {
     bold: 'hamburger--bold',
@@ -100,7 +101,7 @@ const Layout = ({ children }) => {
     { name: 'Leave Management', href: '/leaves', icon: Calendar, show: true, badge: pendingLeaveCount },
     { name: 'Performance Appraisals', href: '/performance-appraisals', icon: Award, show: true },
     { name: 'Departments', href: '/departments', icon: Building2, show: ['Super Admin', 'CEO', 'HR'].includes(user?.role) },
-    { name: 'Inbox', href: '/inbox', icon: Mail, show: user?.role !== 'Super Admin', badge: unreadMessageCount },
+    { name: 'Messages', href: '/inbox', icon: Mail, show: user?.role !== 'Super Admin', badge: unreadMessageCount },
     { name: 'Settings', href: '/settings', icon: Settings, show: hasMinLevel(2) }
   ];
 
@@ -131,9 +132,9 @@ const Layout = ({ children }) => {
             <span className="hamburger-line" />
             <span className="hamburger-line" />
             <span className="hamburger-line" />
-            {pendingLeaveCount > 0 && !sidebarOpen && (
+            {notificationCount > 0 && !sidebarOpen && (
               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                {pendingLeaveCount}
+                {notificationCount}
               </span>
             )}
           </button>

@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 import { performanceAppraisalAPI } from '../services/api';
+import * as XLSX from 'xlsx';
 import { 
   ArrowLeft, Edit2, Printer, User, Calendar, Target, Award,
   BookOpen, TrendingUp, MessageSquare, CheckCircle, Clock,
@@ -60,6 +61,16 @@ const getMonthsForPeriod = (periodType, periodQuarter, periodSemi) => {
   }
 
   return allMonths.map(m => ({ key: m, label: monthLabels[m] }));
+};
+
+const chunkMonthsForPrint = (months) => {
+  if (!Array.isArray(months) || months.length === 0) return [];
+  const chunkSize = months.length <= 2 ? months.length : 2;
+  const chunks = [];
+  for (let i = 0; i < months.length; i += chunkSize) {
+    chunks.push(months.slice(i, i + chunkSize));
+  }
+  return chunks;
 };
 
 const getSoftSkillWeightFromRating = (rating) => {
@@ -284,6 +295,312 @@ const PerformanceAppraisalDetails = () => {
     window.print();
   };
 
+  const handleExportExcel = () => {
+    if (!appraisal) return;
+
+    const activeMonths = getMonthsForPeriod(appraisal.period_type, appraisal.period_quarter, appraisal.period_semi);
+    const monthHeaders = activeMonths.flatMap(m => [`${m.label} Target`, `${m.label} Actual`, `${m.label} %`]);
+    const sectionBHeaders = [
+      'Pillar',
+      'Key Result Area',
+      'Target',
+      ...monthHeaders,
+      'Total Target',
+      'Total Actual',
+      '% Achieved',
+      'Weight',
+      'Rating',
+      'Wtd Avg'
+    ];
+    const maxColumns = Math.max(sectionBHeaders.length, 6);
+
+    const styles = {
+      sectionTitle: {
+        font: { bold: true, color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: '2F5597' } },
+        alignment: { vertical: 'center', horizontal: 'left' }
+      },
+      tableHeader: {
+        font: { bold: true, color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: '1F4E78' } },
+        alignment: { vertical: 'center', horizontal: 'center', wrapText: true }
+      },
+      subHeader: {
+        font: { bold: true },
+        fill: { fgColor: { rgb: 'D9E1F2' } },
+        alignment: { vertical: 'center', horizontal: 'left' }
+      },
+      label: {
+        font: { bold: true },
+        fill: { fgColor: { rgb: 'F2F2F2' } }
+      },
+      total: {
+        font: { bold: true },
+        fill: { fgColor: { rgb: 'FFF2CC' } }
+      }
+    };
+
+    const rows = [];
+    const merges = [];
+    const rowStyles = new Map();
+    const cellStyles = [];
+
+    const addRow = (row = [], style) => {
+      const rowIndex = rows.length;
+      rows.push(row);
+      if (style) rowStyles.set(rowIndex, style);
+      return rowIndex;
+    };
+
+    const addSectionTitle = (title) => {
+      const rowIndex = addRow([title], styles.sectionTitle);
+      merges.push({ s: { r: rowIndex, c: 0 }, e: { r: rowIndex, c: maxColumns - 1 } });
+    };
+
+    const formatNumber = (value, digits = 2) => {
+      const num = parseFloat(value);
+      if (!Number.isFinite(num)) return value ?? '';
+      return num.toFixed(digits);
+    };
+
+    const formatPercent = (value) => {
+      if (value === null || value === undefined || value === '') return '';
+      const num = parseFloat(value);
+      if (Number.isFinite(num)) {
+        return `${num}%`;
+      }
+      const str = String(value).trim();
+      return str.includes('%') ? str : `${str}%`;
+    };
+
+    const applyRowStyle = (sheet, rowIndex, style) => {
+      for (let c = 0; c < maxColumns; c += 1) {
+        const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c });
+        if (!sheet[cellRef]) sheet[cellRef] = { t: 's', v: '' };
+        sheet[cellRef].s = { ...(sheet[cellRef].s || {}), ...style };
+      }
+    };
+
+    const applyCellStyle = (sheet, rowIndex, colIndex, style) => {
+      const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+      if (!sheet[cellRef]) sheet[cellRef] = { t: 's', v: '' };
+      sheet[cellRef].s = { ...(sheet[cellRef].s || {}), ...style };
+    };
+
+    addSectionTitle('Section A: Employee Details');
+    const sectionADetails = [
+      ['Name', `${appraisal.first_name || ''} ${appraisal.last_name || ''}`.trim()],
+      ['PF Number', appraisal.pf_number || appraisal.employee_number || ''],
+      ['Branch/Department', appraisal.branch_department || appraisal.department_name || ''],
+      ['Position', appraisal.position || appraisal.job_title || ''],
+      ['Supervisor', appraisal.supervisor_first_name ? `${appraisal.supervisor_first_name} ${appraisal.supervisor_last_name}`.trim() : 'N/A'],
+      ['Period', `${appraisal.period_type === 'Quarterly' ? `Q${appraisal.period_quarter} ` : ''}${appraisal.period_year || ''}`.trim()],
+      ['Appraisal Date', appraisal.appraisal_date ? new Date(appraisal.appraisal_date).toLocaleDateString() : 'N/A']
+    ];
+    sectionADetails.forEach(([label, value]) => {
+      const rowIndex = addRow([label, value]);
+      cellStyles.push({ rowIndex, colIndex: 0, style: styles.label });
+    });
+    addRow([]);
+
+    const performanceSectionsData = normalizePerformanceSectionsData(appraisal.performanceSectionsData);
+    const performanceSectionsScores = buildPerformanceSectionsFromScores(appraisal.performanceSectionScores);
+    const kraSections = Object.entries(krasByPillar).map(([pillarName, kras], idx) => {
+      const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+      const rows = kras.map((kra) => {
+        const base = createEmptyRow();
+        const row = {
+          ...base,
+          id: kra.id || base.id,
+          pillar: pillarName,
+          keyResultArea: kra.kra_name || '',
+          target: kra.target_description || kra.target || ''
+        };
+        months.forEach((m) => {
+          row[`${m}Target`] = kra?.[`${m}_target`] ?? '';
+          row[`${m}Actual`] = kra?.[`${m}_actual`] ?? '';
+          row[`${m}Percent`] = kra?.[`${m}_percent`] ?? 0;
+        });
+        row.targetTotal = kra.target_total ?? 0;
+        row.actualTotal = kra.actual_total ?? 0;
+        row.percentAchieved = kra.percent_achieved ?? 0;
+        row.weight = kra.kra_weight ?? 0;
+        row.actualRating = kra.actual_rating ?? kra.percent_achieved ?? 0;
+        row.weightedAverage = kra.weighted_average ?? 0;
+        return row;
+      });
+      const subtotalWeight = rows.reduce((sum, r) => sum + (parseFloat(r.weight) || 0), 0);
+      const subtotalWeightedAverage = rows.reduce((sum, r) => sum + (parseFloat(r.weightedAverage) || 0), 0);
+      return { id: `kra_${idx}`, name: pillarName, rows, subtotalWeight, subtotalWeightedAverage };
+    });
+
+    const rawSections = (performanceSectionsData && performanceSectionsData.length > 0)
+      ? performanceSectionsData
+      : ((performanceSectionsScores && performanceSectionsScores.length > 0)
+        ? performanceSectionsScores
+        : (kraSections.length > 0 ? kraSections : null));
+
+    const sectionBSections = rawSections ? normalizeSectionBToTemplates(rawSections) : [];
+    const sectionBTotals = Array.isArray(sectionBSections)
+      ? sectionBSections.reduce(
+        (acc, s) => {
+          acc.totalWeight += parseFloat(s.subtotalWeight) || 0;
+          acc.totalWeightedAverage += parseFloat(s.subtotalWeightedAverage) || 0;
+          return acc;
+        },
+        { totalWeight: 0, totalWeightedAverage: 0 }
+      )
+      : { totalWeight: 0, totalWeightedAverage: 0 };
+    const computedSectionBTotal = sectionBTotals.totalWeight > 0
+      ? Math.round((sectionBTotals.totalWeightedAverage / sectionBTotals.totalWeight) * 0.7)
+      : 0;
+    const totalPerformanceRating = Math.round((parseFloat(computedSectionBTotal) || 0) + (parseFloat(computedSectionCTotal) || 0));
+
+    addSectionTitle('Section B: Performance Targets (Strategic Objectives - 70%)');
+    if (!sectionBSections || sectionBSections.length === 0) {
+      const rowIndex = addRow(['No performance targets recorded']);
+      merges.push({ s: { r: rowIndex, c: 0 }, e: { r: rowIndex, c: maxColumns - 1 } });
+    } else {
+      sectionBSections.forEach((section) => {
+        const sectionHeaderIndex = addRow([`${section.name} Section`], styles.subHeader);
+        merges.push({ s: { r: sectionHeaderIndex, c: 0 }, e: { r: sectionHeaderIndex, c: maxColumns - 1 } });
+
+        addRow(sectionBHeaders, styles.tableHeader);
+
+        section.rows.forEach((row) => {
+          const rowData = [row.pillar, row.keyResultArea, row.target];
+          activeMonths.forEach((m) => {
+            rowData.push(row[`${m.key}Target`] ?? '');
+            rowData.push(row[`${m.key}Actual`] ?? '');
+            rowData.push(formatPercent(row[`${m.key}Percent`]) || '');
+          });
+          rowData.push(row.targetTotal ?? '');
+          rowData.push(row.actualTotal ?? '');
+          rowData.push(formatPercent(row.percentAchieved));
+          rowData.push(row.weight ?? '');
+          rowData.push(row.actualRating ?? '');
+          rowData.push(formatNumber(row.weightedAverage, 2));
+          addRow(rowData);
+        });
+
+        const subtotalWeight = section.subtotalWeight ?? section.rows.reduce((sum, r) => sum + (parseFloat(r.weight) || 0), 0);
+        const subtotalWeightedAverage = section.subtotalWeightedAverage ?? section.rows.reduce((sum, r) => sum + (parseFloat(r.weightedAverage) || 0), 0);
+        const subtotalRow = new Array(maxColumns).fill('');
+        subtotalRow[0] = `Sub-Total ${String(section.name || '').toUpperCase()}:`;
+        subtotalRow[maxColumns - 3] = subtotalWeight;
+        subtotalRow[maxColumns - 1] = formatNumber(subtotalWeightedAverage, 2);
+        const subtotalIndex = addRow(subtotalRow, styles.total);
+        merges.push({ s: { r: subtotalIndex, c: 0 }, e: { r: subtotalIndex, c: maxColumns - 4 } });
+
+        addRow([]);
+      });
+
+      const totalRow = new Array(maxColumns).fill('');
+      totalRow[0] = 'Section B Total (Strategic Objectives - 70%)';
+      totalRow[maxColumns - 1] = computedSectionBTotal;
+      const totalIndex = addRow(totalRow, styles.total);
+      merges.push({ s: { r: totalIndex, c: 0 }, e: { r: totalIndex, c: maxColumns - 2 } });
+      addRow([]);
+    }
+
+    addSectionTitle('Section C: Soft Skills / Behavior Traits (30%)');
+    if (visibleSoftSkillScores.length === 0) {
+      const rowIndex = addRow(['No soft skills recorded']);
+      merges.push({ s: { r: rowIndex, c: 0 }, e: { r: rowIndex, c: Math.max(4, maxColumns - 1) } });
+    } else {
+      addRow(['Soft Skill', 'Weight', 'Rating', 'Weighted Score', 'Comments'], styles.tableHeader);
+      visibleSoftSkillScores.forEach((skill) => {
+        const rating = parseFloat(skill?.rating) || 0;
+        const weight = getSoftSkillWeightFromRating(rating);
+        const weightedScore = weight * rating;
+        addRow([
+          skill.skill_name || skill.name || '',
+          weight,
+          rating,
+          formatNumber(weightedScore, 2),
+          skill.comments || '-'
+        ]);
+      });
+      const totalRow = new Array(maxColumns).fill('');
+      totalRow[0] = 'Section C Total (Soft Skills - 30%)';
+      totalRow[maxColumns - 1] = computedSectionCTotal;
+      const totalIndex = addRow(totalRow, styles.total);
+      merges.push({ s: { r: totalIndex, c: 0 }, e: { r: totalIndex, c: maxColumns - 2 } });
+    }
+    addRow([]);
+
+    addSectionTitle('Part E: Overall Performance Rating');
+    addRow(['Strategic Objectives (70%)', 'Soft Skills (30%)', 'Total Performance Rating'], styles.tableHeader);
+    addRow([computedSectionBTotal, computedSectionCTotal, `${totalPerformanceRating}%`]);
+    addRow([]);
+
+    addSectionTitle('Part F: Courses/Training Attended');
+    if (appraisal.courses?.length > 0) {
+      addRow(['#', 'Course/Training', 'Comments'], styles.tableHeader);
+      appraisal.courses.forEach((course, index) => {
+        addRow([index + 1, course.course_name || '', course.comments || '-']);
+      });
+    } else {
+      const rowIndex = addRow(['No courses recorded']);
+      merges.push({ s: { r: rowIndex, c: 0 }, e: { r: rowIndex, c: maxColumns - 1 } });
+    }
+    addRow([]);
+
+    addSectionTitle('Part F: Development Plans');
+    if (appraisal.developmentPlans?.length > 0) {
+      addRow(['#', 'Area for Development', 'Manager Actions', 'Target Date'], styles.tableHeader);
+      appraisal.developmentPlans.forEach((plan, index) => {
+        addRow([
+          index + 1,
+          plan.plan_description || '',
+          plan.manager_actions || '-',
+          plan.target_completion_date ? new Date(plan.target_completion_date).toLocaleDateString() : '-'
+        ]);
+      });
+    } else {
+      const rowIndex = addRow(['No development plans recorded']);
+      merges.push({ s: { r: rowIndex, c: 0 }, e: { r: rowIndex, c: maxColumns - 1 } });
+    }
+    addRow([]);
+
+    addSectionTitle('Part F: Comments & Signatures');
+    const commentsRows = [
+      ['Appraisee Comments', appraisal.appraisee_comments || ''],
+      ['Appraiser/Supervisor Comments', appraisal.appraiser_comments || ''],
+      ['HOD Comments', appraisal.hod_comments || ''],
+      ['HR Comments', appraisal.hr_comments || ''],
+      ['CEO Comments', appraisal.ceo_comments || '']
+    ];
+    commentsRows.forEach(([label, value]) => {
+      const rowIndex = addRow([label, value || '-']);
+      cellStyles.push({ rowIndex, colIndex: 0, style: styles.label });
+    });
+
+    const sheet = XLSX.utils.aoa_to_sheet(rows);
+    sheet['!merges'] = merges;
+    sheet['!cols'] = Array.from({ length: maxColumns }, (_, idx) => {
+      if (idx === 0) return { wch: 28 };
+      if (idx === 1) return { wch: 26 };
+      if (idx === 2) return { wch: 24 };
+      return { wch: 14 };
+    });
+
+    rowStyles.forEach((style, rowIndex) => {
+      applyRowStyle(sheet, rowIndex, style);
+    });
+    cellStyles.forEach(({ rowIndex, colIndex, style }) => {
+      applyCellStyle(sheet, rowIndex, colIndex, style);
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, sheet, 'Appraisal Report');
+
+    const namePart = `${appraisal.first_name || ''}_${appraisal.last_name || ''}`.trim().replace(/\s+/g, '_') || 'Employee';
+    const periodPart = `${appraisal.period_type === 'Quarterly' ? `Q${appraisal.period_quarter}_` : ''}${appraisal.period_year || ''}`.trim();
+    const filename = `Performance_Appraisal_${namePart}${periodPart ? `_${periodPart}` : ''}.xlsx`;
+    XLSX.writeFile(wb, filename, { bookType: 'xlsx', cellStyles: true });
+  };
+
   const getStatusBadge = (status) => {
     const statusConfig = {
       'Draft': { color: 'bg-gray-100 text-gray-700', icon: Edit2 },
@@ -443,6 +760,10 @@ const PerformanceAppraisalDetails = () => {
               <Printer className="w-4 h-4 mr-2" />
               Print
             </button>
+            <button onClick={handleExportExcel} className="btn-secondary inline-flex items-center text-sm sm:text-base">
+              <FileText className="w-4 h-4 mr-2" />
+              Export to Excel
+            </button>
             {canEdit && (
               <Link to={`/performance-appraisals/${id}/edit`} className="btn-primary inline-flex items-center text-sm sm:text-base">
                 <Edit2 className="w-4 h-4 mr-2" />
@@ -572,6 +893,13 @@ const PerformanceAppraisalDetails = () => {
                 : (kraSections.length > 0 ? kraSections : null));
 
             const sections = rawSections ? normalizeSectionBToTemplates(rawSections) : null;
+            const monthChunks = chunkMonthsForPrint(activeMonths);
+            const printChunks = monthChunks.length > 0
+              ? [
+                ...monthChunks.map(chunk => ({ type: 'months', months: chunk })),
+                { type: 'totals' }
+              ]
+              : [{ type: 'totals' }];
 
             const sectionBTotals = Array.isArray(sections)
               ? sections.reduce(
@@ -606,13 +934,13 @@ const PerformanceAppraisalDetails = () => {
                   const subtotalWeightedAverage = section.subtotalWeightedAverage ?? section.rows.reduce((sum, r) => sum + (parseFloat(r.weightedAverage) || 0), 0);
 
                   return (
-                    <div key={section.id} className="border-2 border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <div key={section.id} className="border-2 border-gray-200 rounded-xl overflow-hidden print:overflow-visible shadow-sm">
                       <div className="bg-primary-50 px-4 py-2 font-semibold text-primary-700 print:bg-gray-100 print:text-black">
                         {section.name} Section
                       </div>
 
-                      <div className="overflow-x-auto p-2">
-                        <table className="w-full text-xs border-collapse">
+                      <div className="overflow-x-auto p-2 print-table-wrapper print:hidden">
+                        <table className="w-full text-xs border-collapse print-table">
                           <thead>
                             <tr className="bg-gray-100">
                               <th className="border border-gray-300 p-2 min-w-[150px] text-left font-bold">Pillar</th>
@@ -677,6 +1005,98 @@ const PerformanceAppraisalDetails = () => {
                           </tbody>
                         </table>
                       </div>
+
+                      <div className="hidden print:block space-y-4 p-2">
+                        {printChunks.map((chunk, chunkIndex) => {
+                          const isTotalsChunk = chunk.type === 'totals';
+                          const monthChunk = isTotalsChunk ? [] : chunk.months;
+                          const subtotalColSpan = isTotalsChunk ? 3 : (monthChunk.length * 3 + 3);
+                          const chunkKey = isTotalsChunk
+                            ? `${section.id}-chunk-totals`
+                            : `${section.id}-chunk-${chunkIndex}`;
+
+                          return (
+                            <div key={chunkKey} className="print-table-wrapper print-avoid-break">
+                              <table className="w-full text-[10px] border-collapse print-table print-avoid-break">
+                                <thead>
+                                  <tr className="bg-gray-100">
+                                    <th className="border border-gray-300 p-1 min-w-[120px] text-left font-bold">Pillar</th>
+                                    <th className="border border-gray-300 p-1 min-w-[160px] text-left font-bold">Key Result Area</th>
+                                    <th className="border border-gray-300 p-1 min-w-[110px] text-left font-bold">Target</th>
+                                    {!isTotalsChunk && monthChunk.map(m => (
+                                      <React.Fragment key={m.key}>
+                                        <th className="border border-gray-300 p-1 bg-blue-50 font-bold min-w-[60px]">{m.label} Target</th>
+                                        <th className="border border-gray-300 p-1 bg-yellow-50 font-bold min-w-[60px]">{m.label} Actual</th>
+                                        <th className="border border-gray-300 p-1 bg-green-50 font-bold min-w-[55px]">{m.label} %</th>
+                                      </React.Fragment>
+                                    ))}
+                                    {isTotalsChunk && (
+                                      <>
+                                        <th className="border border-gray-300 p-1 bg-indigo-100 font-bold min-w-[75px]">Total Target</th>
+                                        <th className="border border-gray-300 p-1 bg-indigo-100 font-bold min-w-[75px]">Total Actual</th>
+                                        <th className="border border-gray-300 p-1 bg-purple-100 font-bold min-w-[70px]">% Achieved</th>
+                                        <th className="border border-gray-300 p-1 bg-orange-100 font-bold min-w-[60px]">Weight</th>
+                                        <th className="border border-gray-300 p-1 bg-pink-100 font-bold min-w-[60px]">Rating</th>
+                                        <th className="border border-gray-300 p-1 bg-emerald-100 font-bold min-w-[70px]">Wtd Avg</th>
+                                      </>
+                                    )}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {section.rows.map((row) => (
+                                    <tr key={`${row.id}-${chunkKey}`} className="hover:bg-gray-50">
+                                      <td className="border border-gray-300 p-1 align-top">{displayValue(row.pillar)}</td>
+                                      <td className="border border-gray-300 p-1 align-top">{displayValue(row.keyResultArea)}</td>
+                                      <td className="border border-gray-300 p-1 align-top">{displayValue(row.target)}</td>
+                                      {!isTotalsChunk && monthChunk.map(m => (
+                                        <React.Fragment key={m.key}>
+                                          <td className="border border-gray-300 p-1 bg-blue-50 text-center align-top">{displayValue(row[`${m.key}Target`])}</td>
+                                          <td className="border border-gray-300 p-1 bg-yellow-50 text-center align-top">{displayValue(row[`${m.key}Actual`])}</td>
+                                          <td className="border border-gray-300 p-1 bg-green-50 text-center font-medium align-top">
+                                            {(() => {
+                                              const dv = displayValue(row[`${m.key}Percent`]);
+                                              return dv === '-' ? '-' : `${dv}%`;
+                                            })()}
+                                          </td>
+                                        </React.Fragment>
+                                      ))}
+                                      {isTotalsChunk && (
+                                        <>
+                                          <td className="border border-gray-300 p-1 bg-indigo-100 text-center font-bold align-top">{displayValue(row.targetTotal)}</td>
+                                          <td className="border border-gray-300 p-1 bg-indigo-100 text-center font-bold align-top">{displayValue(row.actualTotal)}</td>
+                                          <td className={`border border-gray-300 p-1 bg-purple-100 text-center font-bold align-top ${getRatingColor(row.percentAchieved)}`}>
+                                            {(() => {
+                                              const dv = displayValue(row.percentAchieved);
+                                              return dv === '-' ? '-' : `${dv}%`;
+                                            })()}
+                                          </td>
+                                          <td className="border border-gray-300 p-1 bg-orange-100 text-center font-bold align-top">{displayValue(row.weight)}</td>
+                                          <td className="border border-gray-300 p-1 bg-pink-100 text-center font-bold align-top">{displayValue(row.actualRating)}</td>
+                                          <td className="border border-gray-300 p-1 bg-emerald-100 text-center font-bold text-emerald-700 align-top">
+                                            {parseFloat(row.weightedAverage || 0).toFixed(2)}
+                                          </td>
+                                        </>
+                                      )}
+                                    </tr>
+                                  ))}
+
+                                  {isTotalsChunk && (
+                                    <tr className="bg-gray-200 font-bold">
+                                      <td colSpan={3} className="border border-gray-300 p-1 text-left">
+                                        Sub-Total {String(section.name || '').toUpperCase()}:
+                                      </td>
+                                      <td colSpan={subtotalColSpan} className="border border-gray-300 p-1"></td>
+                                      <td className="border border-gray-300 p-1 text-center bg-orange-200">{subtotalWeight}</td>
+                                      <td className="border border-gray-300 p-1 text-center bg-pink-200"></td>
+                                      <td className="border border-gray-300 p-1 text-center bg-emerald-200 text-emerald-800">{subtotalWeightedAverage.toFixed(2)}</td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
@@ -717,8 +1137,8 @@ const PerformanceAppraisalDetails = () => {
             <p className="text-gray-500">No soft skills recorded</p>
           ) : (
             <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
+              <div className="overflow-x-auto print-table-wrapper">
+                <table className="min-w-full text-sm print-table">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-2 text-left">Soft Skill</th>
@@ -859,8 +1279,8 @@ const PerformanceAppraisalDetails = () => {
               <h2 className="text-lg font-semibold">Part F: Courses/Training Attended</h2>
             </div>
             
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
+            <div className="overflow-x-auto print-table-wrapper">
+              <table className="min-w-full text-sm print-table">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-2 text-left">#</th>
@@ -890,8 +1310,8 @@ const PerformanceAppraisalDetails = () => {
               <h2 className="text-lg font-semibold">Part F: Development Plans</h2>
             </div>
             
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
+            <div className="overflow-x-auto print-table-wrapper">
+              <table className="min-w-full text-sm print-table">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-2 text-left">#</th>
