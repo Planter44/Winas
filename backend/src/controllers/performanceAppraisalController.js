@@ -2,12 +2,15 @@ const db = require('../database/db');
 const { logAudit } = require('../middleware/audit');
 
 const normalizeRoleName = (role) => String(role || '').trim();
-const HR_ROLE_NAMES = new Set(['HR', 'HR Manager', 'Human Resource', 'Human Resources']);
+const HR_ROLE_NAMES = new Set(['hr', 'hr manager', 'human resource', 'human resources']);
 
 const findDepartmentUserByRole = async (client, departmentId, roleNames) => {
     if (!departmentId) return null;
     const roles = Array.isArray(roleNames) ? roleNames : [roleNames];
-    if (roles.length === 0) return null;
+    const normalizedRoles = roles
+        .map(role => String(role || '').trim().toLowerCase())
+        .filter(Boolean);
+    if (normalizedRoles.length === 0) return null;
 
     const result = await client.query(
         `SELECT u.id
@@ -15,10 +18,10 @@ const findDepartmentUserByRole = async (client, departmentId, roleNames) => {
          JOIN roles r ON u.role_id = r.id
          WHERE u.department_id = $1
            AND u.deleted_at IS NULL
-           AND r.name = ANY($2::text[])
+           AND LOWER(r.name) = ANY($2::text[])
          ORDER BY u.id ASC
          LIMIT 1`,
-        [departmentId, roles]
+        [departmentId, normalizedRoles]
     );
 
     return result.rows[0]?.id || null;
@@ -111,8 +114,13 @@ const resolveSupervisorStaffId = async (client, userId, fallbackStaffId) => {
     const supervisorUserId = meta.rows[0]?.supervisor_id || null;
     const deptId = meta.rows[0]?.department_id || null;
     const roleName = normalizeRoleName(meta.rows[0]?.role_name);
-    const roleNeedsCeo = roleName === 'HOD' || HR_ROLE_NAMES.has(roleName);
     const roleNameLower = roleName.toLowerCase();
+    const isHodRole = roleNameLower === 'hod'
+        || roleNameLower.includes('head of department')
+        || (roleNameLower.includes('head') && roleNameLower.includes('department'));
+    const roleNeedsCeo = isHodRole || HR_ROLE_NAMES.has(roleNameLower);
+    const isSupervisorRole = roleNameLower === 'supervisor' || roleNameLower.includes('supervisor');
+    const isStaffRole = roleNameLower === 'staff' || roleNameLower.includes('staff');
 
     const getCeoUserId = async () => {
         const ceoUser = await client.query(
@@ -133,7 +141,7 @@ const resolveSupervisorStaffId = async (client, userId, fallbackStaffId) => {
     };
 
     // Follow leave approver rule: for Supervisors, their supervisor/approver is the HOD of their department.
-    if (roleNameLower === 'supervisor') {
+    if (isSupervisorRole) {
         const hodUserId = await getHodUserId();
         if (hodUserId) return hodUserId;
         if (supervisorUserId) return supervisorUserId;
@@ -142,7 +150,7 @@ const resolveSupervisorStaffId = async (client, userId, fallbackStaffId) => {
     }
 
     // For staff without explicit supervisor, fall back to department supervisor or HOD.
-    if (roleNameLower === 'staff' && !supervisorUserId && deptId) {
+    if (isStaffRole && !supervisorUserId && deptId) {
         const deptSupervisorId = await findDepartmentUserByRole(client, deptId, ['Supervisor']);
         if (deptSupervisorId) return deptSupervisorId;
         const hodUserId = await getHodUserId();
@@ -154,7 +162,10 @@ const resolveSupervisorStaffId = async (client, userId, fallbackStaffId) => {
         return ceoUserId || fallbackStaffId || supervisorUserId;
     }
 
-    return supervisorUserId || fallbackStaffId || null;
+    const resolvedDefault = supervisorUserId || fallbackStaffId;
+    if (resolvedDefault) return resolvedDefault;
+    const ceoUserId = await getCeoUserId();
+    return ceoUserId || null;
 };
 
 const deriveNameFromEmail = (email, userId) => {
@@ -362,7 +373,7 @@ const resolveStaffIdFromStaffTable = async (client, userId) => {
 
     try {
         const columnsRes = await client.query(
-            `SELECT column_name, is_nullable, column_default, data_type
+            `SELECT column_name, is_nullable, column_default, data_type, character_maximum_length
              FROM information_schema.columns
              WHERE table_schema = 'public'
                AND table_name = 'staff'`
@@ -381,18 +392,60 @@ const resolveStaffIdFromStaffTable = async (client, userId) => {
         let staffProfileId = null;
         let employeeNumber = null;
         const profileRes = await client.query(
-            `SELECT id, employee_number, first_name, last_name, job_title
+            `SELECT id, employee_number, first_name, last_name, job_title,
+                    national_id, phone, date_of_birth, gender, date_joined
              FROM staff_profiles WHERE user_id = $1`,
             [userId]
         );
-        staffProfileId = profileRes.rows[0]?.id || null;
+        const profileRow = profileRes.rows[0] || {};
+        staffProfileId = profileRow.id || null;
         if (!staffProfileId && columns.has('staff_profile_id')) {
             staffProfileId = await resolveStaffProfileIdForUser(client, userId);
         }
-        employeeNumber = profileRes.rows[0]?.employee_number || null;
-        const firstName = profileRes.rows[0]?.first_name || null;
-        const lastName = profileRes.rows[0]?.last_name || null;
-        const jobTitle = profileRes.rows[0]?.job_title || null;
+        employeeNumber = profileRow.employee_number || null;
+        const firstName = profileRow.first_name || null;
+        const lastName = profileRow.last_name || null;
+        const jobTitle = profileRow.job_title || null;
+        const nationalId = profileRow.national_id || null;
+        const phoneNumber = profileRow.phone || null;
+        const dateOfBirth = profileRow.date_of_birth || null;
+        const genderRaw = profileRow.gender || null;
+        const dateJoined = profileRow.date_joined || null;
+
+        const clipValue = (value, columnName) => {
+            if (value === null || value === undefined) return value;
+            const maxLength = columns.get(columnName)?.character_maximum_length;
+            if (maxLength && typeof value === 'string' && value.length > maxLength) {
+                return value.slice(0, maxLength);
+            }
+            return value;
+        };
+
+        const makeUniqueToken = (prefix, columnName) => {
+            const token = `${prefix}-${userId}-${Date.now().toString(36)}`;
+            return clipValue(token, columnName);
+        };
+
+        const normalizeGender = (value) => {
+            const normalized = String(value || '').trim().toLowerCase();
+            if (normalized === 'male' || normalized === 'm') return 'Male';
+            if (normalized === 'female' || normalized === 'f') return 'Female';
+            if (normalized === 'other') return 'Other';
+            return null;
+        };
+
+        const resolvedGender = normalizeGender(genderRaw) || 'Other';
+        const resolvedEmploymentType = 'Permanent';
+        const fallbackDate = new Date().toISOString().slice(0, 10);
+        const resolvedDateOfBirth = dateOfBirth || fallbackDate;
+        const resolvedDateOfHire = dateJoined || fallbackDate;
+        const resolvedPhoneNumber = clipValue(
+            phoneNumber ? String(phoneNumber) : '0000000000',
+            'phone_number'
+        );
+        const resolvedIdNumber = nationalId
+            ? clipValue(String(nationalId), 'id_number')
+            : makeUniqueToken('ID', 'id_number');
 
         const tryLookup = async (column, value) => {
             if (!value) return null;
@@ -449,6 +502,18 @@ const resolveStaffIdFromStaffTable = async (client, userId) => {
         const fallbackToken = Date.now();
         const resolveFallbackValue = (column) => {
             const columnName = column?.column_name || 'value';
+            const normalizedColumn = columnName.toLowerCase();
+            if (normalizedColumn === 'gender') return 'Other';
+            if (normalizedColumn === 'employment_type') return 'Permanent';
+            if (normalizedColumn === 'employment_status') return 'Active';
+            if (normalizedColumn === 'marital_status') return 'Single';
+            if (normalizedColumn === 'phone_number') return clipValue('0000000000', columnName);
+            if (normalizedColumn === 'id_number') return makeUniqueToken('ID', columnName);
+            if (normalizedColumn === 'employee_number') return makeUniqueToken('EMP', columnName);
+            if (normalizedColumn === 'first_name') return clipValue(firstName || 'Staff', columnName);
+            if (normalizedColumn === 'last_name') return clipValue(lastName || 'User', columnName);
+            if (normalizedColumn === 'job_title') return clipValue(jobTitle || 'Staff', columnName);
+
             const type = String(column?.data_type || '').toLowerCase();
             if (
                 type.includes('int') ||
@@ -469,27 +534,35 @@ const resolveStaffIdFromStaffTable = async (client, userId) => {
                 return new Date();
             }
             const raw = `AUTO-${columnName}-${userId || 'staff'}-${fallbackToken}`;
-            return raw.length > 60 ? raw.slice(0, 60) : raw;
+            return clipValue(raw.length > 60 ? raw.slice(0, 60) : raw, columnName);
         };
 
         pushValue('user_id', userId);
         pushValue('staff_profile_id', staffProfileId);
 
-        const employeeValue = employeeNumber || (userId ? `AUTO-${userId}` : null);
         const employeeColumn = employeeColumns.find(col => columns.has(col));
+        const employeeValue = employeeNumber
+            || (employeeColumn ? makeUniqueToken('EMP', employeeColumn) : null)
+            || (userId ? `AUTO-${userId}` : null);
         if (employeeColumn) {
-            pushValue(employeeColumn, employeeValue);
+            pushValue(employeeColumn, clipValue(employeeValue, employeeColumn));
         }
 
         const emailValue = normalizedEmail || userEmail;
         const emailColumn = emailColumns.find(col => columns.has(col));
         if (emailColumn) {
-            pushValue(emailColumn, emailValue);
+            pushValue(emailColumn, clipValue(emailValue, emailColumn));
         }
 
-        pushValue('first_name', firstName);
-        pushValue('last_name', lastName);
-        pushValue('job_title', jobTitle);
+        pushValue('first_name', clipValue(firstName || 'Staff', 'first_name'));
+        pushValue('last_name', clipValue(lastName || 'User', 'last_name'));
+        pushValue('job_title', clipValue(jobTitle || 'Staff', 'job_title'));
+        pushValue('id_number', resolvedIdNumber);
+        pushValue('phone_number', resolvedPhoneNumber);
+        pushValue('date_of_birth', resolvedDateOfBirth);
+        pushValue('gender', resolvedGender);
+        pushValue('employment_type', resolvedEmploymentType);
+        pushValue('date_of_hire', resolvedDateOfHire);
         pushValue('department_id', departmentId);
 
         requiredColumns.forEach((column) => {
@@ -1191,8 +1264,12 @@ const createAppraisal = async (req, res) => {
 
         await ensurePerformanceAppraisalSchema(client);
 
-        let supervisorUserId = await resolveSupervisorStaffId(client, targetUserId, null);
-        if (!supervisorUserId && currentUser?.role_name === 'Supervisor') {
+        const creatorRoleLower = normalizeRoleName(currentUser?.role_name).toLowerCase();
+        const creatorFallbackId = creatorRoleLower && creatorRoleLower !== 'staff'
+            ? currentUser?.id
+            : null;
+        let supervisorUserId = await resolveSupervisorStaffId(client, targetUserId, creatorFallbackId);
+        if (!supervisorUserId && creatorRoleLower === 'supervisor') {
             supervisorUserId = currentUser.id;
         }
 

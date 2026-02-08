@@ -108,8 +108,8 @@ const Layout = ({ children }) => {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-page-bg)' }}>
-      <div className="md:hidden fixed top-0 left-0 right-0 border-b border-gray-200 z-50 h-16" style={{ backgroundColor: 'var(--color-header-bg)' }}>
+    <div className="min-h-screen print:bg-white" style={{ backgroundColor: 'var(--color-page-bg)' }}>
+      <div className="md:hidden fixed top-0 left-0 right-0 border-b border-gray-200 z-50 h-16 print:hidden" style={{ backgroundColor: 'var(--color-header-bg)' }}>
         <div className="flex items-center justify-between h-full px-4">
           <Link
             to="/dashboard"
@@ -142,7 +142,7 @@ const Layout = ({ children }) => {
       </div>
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 border-r border-gray-200 transform transition-transform duration-200 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-40 border-r border-gray-200 transform transition-transform duration-200 ease-in-out print:hidden ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } md:translate-x-0`}
         style={{ backgroundColor: 'var(--color-sidebar-bg)', width: 'var(--sidebar-width)' }}
@@ -217,8 +217,8 @@ const Layout = ({ children }) => {
         />
       )}
 
-      <div className="md:pl-[var(--sidebar-width)]">
-        <header className="hidden md:block border-b border-gray-200 sticky top-0 z-20 px-4 py-3" style={{ backgroundColor: 'var(--color-header-bg)' }}>
+      <div className="md:pl-[var(--sidebar-width)] print:pl-0">
+        <header className="hidden md:block border-b border-gray-200 sticky top-0 z-20 px-4 py-3 print:hidden" style={{ backgroundColor: 'var(--color-header-bg)' }}>
           <div className="flex items-center justify-between">
             <Link to="/dashboard" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
               {resolvedLogoUrl ? (
@@ -262,10 +262,10 @@ const Layout = ({ children }) => {
           </div>
         </header>
 
-        <main className="p-4 md:p-8 mt-16 md:mt-0">{children}</main>
+        <main className="p-4 md:p-8 mt-16 md:mt-0 print:mt-0 print:p-0">{children}</main>
         {footerEnabled && (
           <footer
-            className="border-t border-gray-200 px-4 md:px-8 py-4 text-center text-xs"
+            className="border-t border-gray-200 px-4 md:px-8 py-4 text-center text-xs print:hidden"
             style={{
               backgroundColor: 'var(--footer-bg-color)',
               color: 'var(--footer-text-color)',

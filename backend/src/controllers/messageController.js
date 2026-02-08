@@ -254,10 +254,11 @@ const deleteMessage = async (req, res) => {
         const userId = req.user.id;
         const { id } = req.params;
 
-        const senderResult = await db.query(
-            'UPDATE messages SET sender_deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND sender_id = $2 AND sender_deleted_at IS NULL RETURNING id',
-            [id, userId]
-        );
+        const hasSenderDeletedAt = await hasColumn('messages', 'sender_deleted_at');
+        const senderQuery = hasSenderDeletedAt
+            ? 'UPDATE messages SET sender_deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND sender_id = $2 AND sender_deleted_at IS NULL RETURNING id'
+            : 'UPDATE messages SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND sender_id = $2 AND deleted_at IS NULL RETURNING id';
+        const senderResult = await db.query(senderQuery, [id, userId]);
 
         if (senderResult.rowCount > 0) {
             return res.json({ message: 'Message deleted successfully' });
