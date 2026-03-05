@@ -140,7 +140,7 @@ const resolveSupervisorStaffId = async (client, userId, fallbackStaffId) => {
         return await findDepartmentUserByRole(client, deptId, ['HOD']);
     };
 
-    // Follow leave approver rule: for Supervisors, their supervisor/approver is the HOD of their department.
+    // Follow approver rule: for Supervisors, their supervisor/approver is the HOD of their department.
     if (isSupervisorRole) {
         const hodUserId = await getHodUserId();
         if (hodUserId) return hodUserId;

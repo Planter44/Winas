@@ -57,8 +57,6 @@ const main = async () => {
             'departments',
             'users',
             'staff_profiles',
-            'leave_types',
-            'leave_requests',
             'system_settings',
             'appraisals',
             'appraisal_scores',
@@ -82,7 +80,6 @@ const main = async () => {
         const seedAdminSql = path.join(repoRoot, 'database', 'seed_admin.sql');
         const createMessagesSql = path.join(repoRoot, 'database', 'create_messages_table.sql');
         const addUserFieldsSql = path.join(repoRoot, 'database', 'add_user_fields.sql');
-        const addCeoApprovalSql = path.join(repoRoot, 'database', 'add_ceo_approval_column.sql');
         const appraisalMigrationSql = path.join(repoRoot, 'backend', 'src', 'database', 'appraisal_migration.sql');
         const performanceSectionsSql = path.join(repoRoot, 'backend', 'src', 'database', 'performance_sections_migration.sql');
 
@@ -99,7 +96,6 @@ const main = async () => {
         // Non-destructive / idempotent steps
         await runSqlFile(createMessagesSql);
         await runSqlFile(addUserFieldsSql);
-        await runSqlFile(addCeoApprovalSql);
         await runSqlFile(appraisalMigrationSql);
         await runSqlFile(performanceSectionsSql);
 

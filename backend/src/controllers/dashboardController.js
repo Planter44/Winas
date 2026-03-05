@@ -18,16 +18,6 @@ const getDashboardStats = async (req, res) => {
         stats.totalDepartments = parseInt(totalDepartments.rows[0].count);
 
         if (currentUser.role_name === 'Staff') {
-            const myLeaves = await db.query(
-                `SELECT COALESCE(SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END), 0) as pending, 
-                        COALESCE(SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END), 0) as approved,
-                        COALESCE(SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END), 0) as rejected
-                 FROM leave_requests 
-                 WHERE user_id = $1 AND EXTRACT(YEAR FROM created_at) = $2 AND deleted_at IS NULL`,
-                [currentUser.id, currentYear]
-            );
-            stats.myLeaveStats = myLeaves.rows[0];
-
             const myAppraisals = await db.query(
                 `SELECT COUNT(*) as count FROM appraisals 
                  WHERE user_id = $1 AND period_year = $2 AND deleted_at IS NULL`,
@@ -48,13 +38,6 @@ const getDashboardStats = async (req, res) => {
             }
 
         } else if (currentUser.role_name === 'Supervisor') {
-            const pendingLeaves = await db.query(
-                `SELECT COUNT(*) as count FROM leave_requests 
-                 WHERE supervisor_id = $1 AND supervisor_status = 'Pending' AND deleted_at IS NULL`,
-                [currentUser.id]
-            );
-            stats.pendingLeaveApprovals = parseInt(pendingLeaves.rows[0].count);
-
             const teamSize = await db.query(
                 `SELECT COUNT(*) as count FROM users 
                  WHERE supervisor_id = $1 AND is_active = true AND deleted_at IS NULL`,
@@ -82,18 +65,6 @@ const getDashboardStats = async (req, res) => {
             }
 
         } else if (currentUser.role_name === 'HR') {
-            const leaveStats = await db.query(
-                `SELECT 
-                    COUNT(*) as total,
-                    SUM(CASE WHEN status = 'Pending' AND supervisor_status = 'Approved' THEN 1 ELSE 0 END) as pending_hr,
-                    SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) as approved,
-                    SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) as rejected
-                 FROM leave_requests 
-                 WHERE EXTRACT(YEAR FROM created_at) = $1 AND deleted_at IS NULL`,
-                [currentYear]
-            );
-            stats.leaveStats = leaveStats.rows[0];
-
             const appraisalStats = await db.query(
                 `SELECT COUNT(*) as total,
                         SUM(CASE WHEN status = 'Finalized' THEN 1 ELSE 0 END) as finalized
@@ -126,14 +97,6 @@ const getDashboardStats = async (req, res) => {
             );
             stats.departmentStaffCount = parseInt(deptStats.rows[0].staff_count);
 
-            const deptLeaves = await db.query(
-                `SELECT COUNT(*) as count FROM leave_requests lr
-                 JOIN users u ON lr.user_id = u.id
-                 WHERE u.department_id = $1 AND lr.status = 'Pending' AND lr.deleted_at IS NULL`,
-                [currentUser.department_id]
-            );
-            stats.departmentPendingLeaves = parseInt(deptLeaves.rows[0].count);
-
             const myAppraisals = await db.query(
                 `SELECT COUNT(*) as count FROM appraisals 
                  WHERE user_id = $1 AND period_year = $2 AND deleted_at IS NULL`,
@@ -154,18 +117,6 @@ const getDashboardStats = async (req, res) => {
             }
 
         } else if (currentUser.role_name === 'CEO' || currentUser.role_name === 'Super Admin') {
-            const leaveStats = await db.query(
-                `SELECT 
-                    COUNT(*) as total,
-                    SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending,
-                    SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) as approved,
-                    SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) as rejected
-                 FROM leave_requests 
-                 WHERE EXTRACT(YEAR FROM created_at) = $1 AND deleted_at IS NULL`,
-                [currentYear]
-            );
-            stats.leaveStats = leaveStats.rows[0];
-
             const appraisalStats = await db.query(
                 `SELECT 
                     COUNT(*) as total,
@@ -208,59 +159,6 @@ const getDashboardStats = async (req, res) => {
     } catch (error) {
         console.error('Get dashboard stats error:', error);
         res.status(500).json({ error: 'Failed to fetch dashboard statistics' });
-    }
-};
-
-const getLeaveAnalytics = async (req, res) => {
-    try {
-        const { year, departmentId } = req.query;
-        const targetYear = year || new Date().getFullYear();
-
-        let departmentFilter = '';
-        const params = [targetYear];
-        
-        if (departmentId) {
-            departmentFilter = ' AND u.department_id = $2';
-            params.push(departmentId);
-        }
-
-        const monthlyLeaves = await db.query(
-            `SELECT 
-                EXTRACT(MONTH FROM lr.start_date) as month,
-                COUNT(*) as total,
-                SUM(CASE WHEN lr.status = 'Approved' THEN 1 ELSE 0 END) as approved,
-                SUM(CASE WHEN lr.status = 'Rejected' THEN 1 ELSE 0 END) as rejected,
-                SUM(CASE WHEN lr.status = 'Pending' THEN 1 ELSE 0 END) as pending
-             FROM leave_requests lr
-             JOIN users u ON lr.user_id = u.id
-             WHERE EXTRACT(YEAR FROM lr.start_date) = $1 AND lr.deleted_at IS NULL${departmentFilter}
-             GROUP BY EXTRACT(MONTH FROM lr.start_date)
-             ORDER BY month`,
-            params
-        );
-
-        const leaveTypeStats = await db.query(
-            `SELECT 
-                lt.name as leave_type,
-                COUNT(*) as count,
-                SUM(lr.days_requested) as total_days
-             FROM leave_requests lr
-             JOIN leave_types lt ON lr.leave_type_id = lt.id
-             JOIN users u ON lr.user_id = u.id
-             WHERE EXTRACT(YEAR FROM lr.start_date) = $1 
-                   AND lr.status = 'Approved' AND lr.deleted_at IS NULL${departmentFilter}
-             GROUP BY lt.id, lt.name
-             ORDER BY count DESC`,
-            params
-        );
-
-        res.json({
-            monthlyLeaves: monthlyLeaves.rows,
-            leaveTypeStats: leaveTypeStats.rows
-        });
-    } catch (error) {
-        console.error('Get leave analytics error:', error);
-        res.status(500).json({ error: 'Failed to fetch leave analytics' });
     }
 };
 
@@ -365,7 +263,6 @@ const getAuditLogs = async (req, res) => {
 
 module.exports = {
     getDashboardStats,
-    getLeaveAnalytics,
     getAppraisalAnalytics,
     getAuditLogs
 };

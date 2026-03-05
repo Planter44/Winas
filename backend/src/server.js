@@ -8,7 +8,6 @@ require('dotenv').config();
 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
-const leaveRoutes = require('./routes/leaveRoutes');
 const appraisalRoutes = require('./routes/appraisalRoutes');
 const performanceAppraisalRoutes = require('./routes/performanceAppraisalRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
@@ -81,7 +80,6 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/leaves', leaveRoutes);
 app.use('/api/appraisals', appraisalRoutes);
 app.use('/api/performance-appraisals', performanceAppraisalRoutes);
 app.use('/api/departments', departmentRoutes);
