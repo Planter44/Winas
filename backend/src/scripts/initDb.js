@@ -3,6 +3,21 @@ const path = require('path');
 
 require('dotenv').config();
 
+// Diagnostic: log redacted DATABASE_URL to help debug connection issues
+const rawUrl = process.env.DATABASE_URL || '';
+if (!rawUrl) {
+    console.error('❌ DATABASE_URL environment variable is NOT set. Exiting.');
+    process.exit(1);
+}
+try {
+    const parsed = new URL(rawUrl);
+    const redacted = `${parsed.protocol}//${parsed.username}:****@${parsed.host}${parsed.pathname}`;
+    console.log(`🔗 DATABASE_URL (redacted): ${redacted}`);
+} catch (e) {
+    console.error('❌ DATABASE_URL is malformed:', e.message);
+    process.exit(1);
+}
+
 const db = require('../database/db');
 
 const readSqlFile = (absolutePath) => {
