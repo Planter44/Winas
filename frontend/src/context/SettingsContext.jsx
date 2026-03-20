@@ -22,6 +22,7 @@ const defaultSettings = {
   card_style: 'rounded',
   dashboard_card_gradient_opacity: '65',
   dashboard_title: 'Dashboard',
+  leaves_title: 'Leave Management',
   users_title: 'Users',
   departments_title: 'Departments',
   login_welcome_text: 'Welcome to HRMS',

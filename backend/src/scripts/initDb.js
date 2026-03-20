@@ -3,21 +3,6 @@ const path = require('path');
 
 require('dotenv').config();
 
-// Diagnostic: log redacted DATABASE_URL to help debug connection issues
-const rawUrl = process.env.DATABASE_URL || '';
-if (!rawUrl) {
-    console.error('❌ DATABASE_URL environment variable is NOT set. Exiting.');
-    process.exit(1);
-}
-try {
-    const parsed = new URL(rawUrl);
-    const redacted = `${parsed.protocol}//${parsed.username}:****@${parsed.host}${parsed.pathname}`;
-    console.log(`🔗 DATABASE_URL (redacted): ${redacted}`);
-} catch (e) {
-    console.error('❌ DATABASE_URL is malformed:', e.message);
-    process.exit(1);
-}
-
 const db = require('../database/db');
 
 const readSqlFile = (absolutePath) => {
@@ -72,6 +57,8 @@ const main = async () => {
             'departments',
             'users',
             'staff_profiles',
+            'leave_types',
+            'leave_requests',
             'system_settings',
             'appraisals',
             'appraisal_scores',
@@ -95,6 +82,7 @@ const main = async () => {
         const seedAdminSql = path.join(repoRoot, 'database', 'seed_admin.sql');
         const createMessagesSql = path.join(repoRoot, 'database', 'create_messages_table.sql');
         const addUserFieldsSql = path.join(repoRoot, 'database', 'add_user_fields.sql');
+        const addCeoApprovalSql = path.join(repoRoot, 'database', 'add_ceo_approval_column.sql');
         const appraisalMigrationSql = path.join(repoRoot, 'backend', 'src', 'database', 'appraisal_migration.sql');
         const performanceSectionsSql = path.join(repoRoot, 'backend', 'src', 'database', 'performance_sections_migration.sql');
 
@@ -111,6 +99,7 @@ const main = async () => {
         // Non-destructive / idempotent steps
         await runSqlFile(createMessagesSql);
         await runSqlFile(addUserFieldsSql);
+        await runSqlFile(addCeoApprovalSql);
         await runSqlFile(appraisalMigrationSql);
         await runSqlFile(performanceSectionsSql);
 

@@ -5,11 +5,13 @@ import { useAuth } from '../context/AuthContext';
 import { dashboardAPI } from '../services/api';
 import {
   Users,
+  Calendar,
   Award,
   Building2,
   TrendingUp,
   Clock,
-  CheckCircle
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -102,10 +104,46 @@ const Dashboard = () => {
   }
 
   const renderStaffDashboard = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+      <Link to="/leaves" {...getCardProps(0, 'hover:shadow-md transition-shadow')}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-600 mb-1">Pending Leaves</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {stats?.myLeaveStats?.pending || 0}
+            </p>
+          </div>
+          <Clock className="text-yellow-500" size={32} />
+        </div>
+      </Link>
+
+      <Link to="/leaves" {...getCardProps(1, 'hover:shadow-md transition-shadow')}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-600 mb-1">Approved Leaves</p>
+            <p className="text-2xl font-bold text-green-600">
+              {stats?.myLeaveStats?.approved || 0}
+            </p>
+          </div>
+          <CheckCircle className="text-green-500" size={32} />
+        </div>
+      </Link>
+
+      <Link to="/leaves" {...getCardProps(2, 'hover:shadow-md transition-shadow')}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-600 mb-1">Rejected Leaves</p>
+            <p className="text-2xl font-bold text-red-600">
+              {stats?.myLeaveStats?.rejected || 0}
+            </p>
+          </div>
+          <XCircle className="text-red-500" size={32} />
+        </div>
+      </Link>
+
       <Link
         to="/performance-appraisals?scope=mine"
-        {...getCardProps(0, 'hover:shadow-md transition-shadow')}
+        {...getCardProps(3, 'hover:shadow-md transition-shadow')}
       >
         <div className="flex items-center justify-between">
           <div>
@@ -121,8 +159,20 @@ const Dashboard = () => {
   );
 
   const renderSupervisorDashboard = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-      <Link to="/my-team" {...getCardProps(0, 'hover:shadow-md transition-shadow')}>
+    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+      <Link to="/leaves" {...getCardProps(0, 'hover:shadow-md transition-shadow')}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-600 mb-1">Pending Approvals</p>
+            <p className="text-2xl font-bold text-yellow-600">
+              {stats?.pendingLeaveApprovals || 0}
+            </p>
+          </div>
+          <Clock className="text-yellow-500" size={32} />
+        </div>
+      </Link>
+
+      <Link to="/my-team" {...getCardProps(1, 'hover:shadow-md transition-shadow')}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Team Size</p>
@@ -136,7 +186,7 @@ const Dashboard = () => {
 
       <Link
         to="/performance-appraisals?scope=mine"
-        {...getCardProps(1, 'hover:shadow-md transition-shadow')}
+        {...getCardProps(2, 'hover:shadow-md transition-shadow')}
       >
         <div className="flex items-center justify-between">
           <div>
@@ -149,7 +199,7 @@ const Dashboard = () => {
         </div>
       </Link>
 
-      <div {...getCardProps(2)}>
+      <div {...getCardProps(3)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mb-1">Total Departments</p>
@@ -164,7 +214,7 @@ const Dashboard = () => {
   );
 
   const renderHODDashboard = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
       <Link to="/my-team" {...getCardProps(0, 'hover:shadow-md transition-shadow')}>
         <div className="flex items-center justify-between">
           <div>
@@ -177,9 +227,21 @@ const Dashboard = () => {
         </div>
       </Link>
 
+      <Link to="/leaves" {...getCardProps(1, 'hover:shadow-md transition-shadow')}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-yellow-700 mb-1 font-medium">Pending Leaves</p>
+            <p className="text-3xl font-bold text-yellow-900">
+              {stats?.departmentPendingLeaves || 0}
+            </p>
+          </div>
+          <Calendar className="text-yellow-500" size={36} />
+        </div>
+      </Link>
+
       <Link
         to="/performance-appraisals?scope=mine"
-        {...getCardProps(1, 'hover:shadow-md transition-shadow')}
+        {...getCardProps(2, 'hover:shadow-md transition-shadow')}
       >
         <div className="flex items-center justify-between">
           <div>
@@ -192,7 +254,7 @@ const Dashboard = () => {
         </div>
       </Link>
 
-      <div {...getCardProps(2)}>
+      <div {...getCardProps(3)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-pink-700 mb-1 font-medium">Total Departments</p>
@@ -208,7 +270,7 @@ const Dashboard = () => {
 
   const renderHRDashboard = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <Link to="/users" {...getCardProps(0, 'hover:shadow-md transition-shadow')}>
           <div className="flex items-center justify-between">
             <div>
@@ -219,9 +281,45 @@ const Dashboard = () => {
           </div>
         </Link>
 
+        <Link to="/leaves" {...getCardProps(1, 'hover:shadow-md transition-shadow')}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Pending HR Approval</p>
+              <p className="text-2xl font-bold text-yellow-600">
+                {stats?.leaveStats?.pending_hr || 0}
+              </p>
+            </div>
+            <Clock className="text-yellow-500" size={32} />
+          </div>
+        </Link>
+
+        <Link to="/leaves" {...getCardProps(2, 'hover:shadow-md transition-shadow')}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Approved Leaves</p>
+              <p className="text-2xl font-bold text-green-600">
+                {stats?.leaveStats?.approved || 0}
+              </p>
+            </div>
+            <CheckCircle className="text-green-500" size={32} />
+          </div>
+        </Link>
+
+        <Link to="/leaves" {...getCardProps(3, 'hover:shadow-md transition-shadow')}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Rejected Leaves</p>
+              <p className="text-2xl font-bold text-red-600">
+                {stats?.leaveStats?.rejected || 0}
+              </p>
+            </div>
+            <XCircle className="text-red-500" size={32} />
+          </div>
+        </Link>
+
         <Link
           to="/performance-appraisals?group=pending_review"
-          {...getCardProps(1, 'hover:shadow-md transition-shadow')}
+          {...getCardProps(4, 'hover:shadow-md transition-shadow')}
         >
           <div className="flex items-center justify-between">
             <div>
@@ -236,7 +334,7 @@ const Dashboard = () => {
 
         <Link
           to="/performance-appraisals?group=finalized"
-          {...getCardProps(2, 'hover:shadow-md transition-shadow')}
+          {...getCardProps(5, 'hover:shadow-md transition-shadow')}
         >
           <div className="flex items-center justify-between">
             <div>
@@ -254,7 +352,7 @@ const Dashboard = () => {
 
   const renderAdminDashboard = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <Link to="/users" {...getCardProps(0, 'hover:shadow-md transition-shadow')}>
           <div className="flex items-center justify-between">
             <div>
@@ -275,7 +373,19 @@ const Dashboard = () => {
           </div>
         </Link>
 
-        <Link to="/performance-appraisals" {...getCardProps(2, 'hover:shadow-md transition-shadow')}>
+        <Link to="/leaves" {...getCardProps(2, 'hover:shadow-md transition-shadow')}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-rose-700 mb-1 font-medium">Total Leaves</p>
+              <p className="text-3xl font-bold text-rose-900">
+                {stats?.leaveStats?.total || 0}
+              </p>
+            </div>
+            <Calendar className="text-rose-500" size={36} />
+          </div>
+        </Link>
+
+        <Link to="/performance-appraisals" {...getCardProps(3, 'hover:shadow-md transition-shadow')}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-green-700 mb-1 font-medium">Avg Performance</p>
@@ -291,10 +401,10 @@ const Dashboard = () => {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <Link
           to="/performance-appraisals?group=pending_review"
-          {...getCardProps(3, 'hover:shadow-md transition-shadow')}
+          {...getCardProps(4, 'hover:shadow-md transition-shadow')}
         >
           <div className="flex items-center justify-between">
             <div>
@@ -309,7 +419,7 @@ const Dashboard = () => {
 
         <Link
           to="/performance-appraisals?group=finalized"
-          {...getCardProps(4, 'hover:shadow-md transition-shadow')}
+          {...getCardProps(5, 'hover:shadow-md transition-shadow')}
         >
           <div className="flex items-center justify-between">
             <div>
@@ -366,6 +476,17 @@ const Dashboard = () => {
             {(user?.role === 'CEO' || user?.role === 'Super Admin') ? (
               <>
                 <a
+                  href="/leaves"
+                  className={quickActionClass}
+                >
+                  <Calendar className="mr-2 sm:mr-3 text-primary-600 flex-shrink-0" size={22} />
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900 text-sm sm:text-base">Pending Approvals</p>
+                    <p className="text-xs sm:text-sm text-gray-600 truncate">Review leave requests</p>
+                  </div>
+                </a>
+
+                <a
                   href="/users"
                   className={quickActionClass}
                 >
@@ -411,6 +532,28 @@ const Dashboard = () => {
               </>
             ) : (
               <>
+                <a
+                  href="/leaves/new"
+                  className={quickActionClass}
+                >
+                  <Calendar className="mr-2 sm:mr-3 text-primary-600 flex-shrink-0" size={22} />
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900 text-sm sm:text-base">Apply for Leave</p>
+                    <p className="text-xs sm:text-sm text-gray-600 truncate">Submit a new leave request</p>
+                  </div>
+                </a>
+
+                <a
+                  href="/leaves"
+                  className={quickActionClass}
+                >
+                  <Clock className="mr-2 sm:mr-3 text-primary-600 flex-shrink-0" size={22} />
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900 text-sm sm:text-base">View Leave Status</p>
+                    <p className="text-xs sm:text-sm text-gray-600 truncate">Check your leave requests</p>
+                  </div>
+                </a>
+
                 <a
                   href="/performance-appraisals"
                   className={quickActionClass}

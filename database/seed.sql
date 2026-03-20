@@ -90,6 +90,17 @@ INSERT INTO staff_profiles (user_id, first_name, last_name, employee_number, pho
 (18, 'Patrick', 'Moore', 'EMP018', '+254700888888', '2024-04-01', 'Marketing Officer'),
 (19, 'Rachel', 'Jackson', 'EMP019', '+254700999999', '2024-04-01', 'Sales Executive');
 
+-- Insert Leave Types
+INSERT INTO leave_types (name, description, days_allowed, requires_document, is_paid, carry_forward) VALUES
+('Annual Leave', 'Annual paid vacation leave', 21, false, true, true),
+('Sick Leave', 'Medical sick leave', 14, true, true, false),
+('Maternity Leave', 'Maternity leave for female employees', 90, true, true, false),
+('Paternity Leave', 'Paternity leave for male employees', 14, true, true, false),
+('Compassionate Leave', 'Leave for family emergencies or bereavement', 7, true, true, false),
+('Study Leave', 'Educational or professional development leave', 10, true, false, false),
+('Emergency Leave', 'Urgent personal matters', 3, false, true, false),
+('Unpaid Leave', 'Leave without pay', 30, false, false, false);
+
 -- Insert System Settings
 INSERT INTO system_settings (setting_key, setting_value, setting_type, description, is_public) VALUES
 ('company_name', 'Winas Sacco', 'string', 'Company name displayed across the system', true),
@@ -107,6 +118,7 @@ INSERT INTO system_settings (setting_key, setting_value, setting_type, descripti
 ('card_style', 'rounded', 'string', 'Card style', true),
 ('dashboard_card_gradient_opacity', '65', 'number', 'Opacity for dashboard card gradients (0-100)', true),
 ('dashboard_title', 'Dashboard', 'string', 'Dashboard page title', true),
+('leaves_title', 'Leave Management', 'string', 'Leave management page title', true),
 ('users_title', 'Users', 'string', 'Users page title', true),
 ('departments_title', 'Departments', 'string', 'Departments page title', true),
 ('login_welcome_text', 'Welcome to HRMS', 'string', 'Login welcome headline', true),
@@ -116,8 +128,27 @@ INSERT INTO system_settings (setting_key, setting_value, setting_type, descripti
 ('theme_mode', 'light', 'string', 'Theme mode (light/dark)', true),
 ('hamburger_style', 'classic', 'string', 'Hamburger menu style', true),
 ('hamburger_color', '#2563eb', 'string', 'Hamburger menu color', true),
+('leave_approval_levels', '2', 'number', 'Number of approval levels for leave (Supervisor + HR)', false),
 ('appraisal_frequency', 'Quarterly', 'string', 'Default appraisal frequency', false),
-('financial_year_start', '01-01', 'string', 'Financial year start date (MM-DD)', false);
+('financial_year_start', '01-01', 'string', 'Financial year start date (MM-DD)', false),
+('max_leave_days_per_year', '50', 'number', 'Maximum total leave days per year', false);
+
+-- Insert sample leave requests (for demonstration)
+INSERT INTO leave_requests (user_id, leave_type_id, start_date, end_date, days_requested, reason, status, supervisor_id) VALUES
+(12, 1, '2024-06-01', '2024-06-05', 5, 'Family vacation', 'Pending', 8),
+(14, 2, '2024-05-20', '2024-05-22', 3, 'Medical appointment', 'Approved', 9);
+
+-- Update the second leave request to show full approval workflow
+UPDATE leave_requests SET 
+    supervisor_status = 'Approved',
+    supervisor_comment = 'Approved by supervisor',
+    supervisor_action_at = CURRENT_TIMESTAMP,
+    hr_id = 3,
+    hr_status = 'Approved',
+    hr_comment = 'Approved by HR',
+    hr_action_at = CURRENT_TIMESTAMP,
+    status = 'Approved'
+WHERE id = 2;
 
 -- Insert sample appraisals
 INSERT INTO appraisals (user_id, supervisor_id, hr_id, period_type, period_year, period_quarter, status, overall_score, supervisor_comment, hr_comment, finalized_at) VALUES
@@ -134,7 +165,8 @@ INSERT INTO appraisal_scores (appraisal_id, criteria, score, comment) VALUES
 
 -- Insert audit log sample
 INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES
-(1, 'LOGIN', 'User', 1, '{"ip": "127.0.0.1", "timestamp": "2024-01-29"}');
+(1, 'LOGIN', 'User', 1, '{"ip": "127.0.0.1", "timestamp": "2024-01-29"}'),
+(3, 'APPROVE_LEAVE', 'Leave', 2, '{"leave_id": 2, "action": "approved", "comment": "Approved by HR"}');
 
 -- Note: Default password for all demo accounts is: Admin@0010
 -- Super Admin: johnsonmuhabi@gmail.com / Admin@0010
