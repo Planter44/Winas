@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
-import { leaveAPI, messageAPI } from '../services/api';
+import { messageAPI } from '../services/api';
 import {
   LayoutDashboard,
   Users,
-  Calendar,
   Award,
   Building2,
   Settings,
@@ -22,14 +21,13 @@ const Layout = ({ children }) => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   
   const companyName = getSetting('company_name', 'Winas Sacco');
   const companyLogoUrl = getSetting('company_logo_url', '');
   const footerEnabled = String(getSetting('footer_enabled', 'true')).toLowerCase() !== 'false';
   const footerContent = getSetting('footer_content', '© 2024 Winas Sacco. All rights reserved.');
-  const notificationCount = pendingLeaveCount + unreadMessageCount;
+  const notificationCount = unreadMessageCount;
   const hamburgerStyle = getSetting('hamburger_style', 'classic');
   const hamburgerStyleClass = {
     bold: 'hamburger--bold',
@@ -48,41 +46,10 @@ const Layout = ({ children }) => {
   const resolvedLogoUrl = companyLogoUrl?.startsWith('/') ? `${API_ORIGIN}${companyLogoUrl}` : companyLogoUrl;
 
   useEffect(() => {
-    if (user && hasMinLevel(5)) {
-      fetchPendingLeaves();
-    }
     if (user && user.role !== 'Super Admin') {
       fetchUnreadMessages();
     }
   }, [user, location.pathname]);
-
-  const fetchPendingLeaves = async () => {
-    try {
-      const response = await leaveAPI.getAll({});
-      const leaves = response.data;
-      
-      let pending = 0;
-      if (user?.role === 'Supervisor') {
-        // Supervisors see leaves assigned to them (not their own)
-        pending = leaves.filter(l => 
-          l.supervisor_status === 'Pending' && l.user_id !== user.id
-        ).length;
-      } else if (user?.role === 'HOD') {
-        // HOD sees Supervisor leaves in their department that need first approval
-        pending = leaves.filter(l => 
-          l.supervisor_status === 'Pending' && l.applicant_role === 'Supervisor'
-        ).length;
-      } else if (user?.role === 'HR') {
-        pending = leaves.filter(l => l.supervisor_status === 'Approved' && (l.hr_status === 'Pending' || l.hr_status === null)).length;
-      } else if (user?.role === 'CEO') {
-        pending = leaves.filter(l => l.status === 'Pending' && l.requires_ceo_approval).length;
-      }
-      
-      setPendingLeaveCount(pending);
-    } catch (error) {
-      console.error('Failed to fetch pending leaves:', error);
-    }
-  };
 
   const fetchUnreadMessages = async () => {
     try {
@@ -98,7 +65,6 @@ const Layout = ({ children }) => {
     { name: 'My Profile', href: '/profile', icon: User, show: true },
     { name: 'Users', href: '/users', icon: Users, show: ['Super Admin', 'CEO', 'HR'].includes(user?.role) },
     { name: 'My Team', href: '/my-team', icon: Users, show: ['HOD', 'Supervisor', 'HR', 'CEO'].includes(user?.role) },
-    { name: 'Leave Management', href: '/leaves', icon: Calendar, show: true, badge: pendingLeaveCount },
     { name: 'Performance Appraisals', href: '/performance-appraisals', icon: Award, show: true },
     { name: 'Departments', href: '/departments', icon: Building2, show: ['Super Admin', 'CEO', 'HR'].includes(user?.role) },
     { name: 'Messages', href: '/inbox', icon: Mail, show: user?.role !== 'Super Admin', badge: unreadMessageCount },

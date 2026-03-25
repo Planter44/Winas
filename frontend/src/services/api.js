@@ -53,35 +53,6 @@ export const userAPI = {
   resetPassword: (id, data) => api.post(`/users/${id}/reset-password`, data)
 };
 
-export const leaveAPI = {
-  create: (data, file) => {
-    if (file) {
-      const formData = new FormData();
-      formData.append('leaveTypeId', data.leaveTypeId);
-      formData.append('startDate', data.startDate);
-      formData.append('endDate', data.endDate);
-      formData.append('reason', data.reason);
-      formData.append('document', file);
-      return api.post('/leaves', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-    }
-    return api.post('/leaves', data);
-  },
-  getAll: (params) => api.get('/leaves', { params }),
-  getById: (id) => api.get(`/leaves/${id}`),
-  getBalance: (userId) => api.get(`/leaves/balance/${userId || ''}`),
-  supervisorAction: (id, data) => api.post(`/leaves/${id}/supervisor-action`, data),
-  hrAction: (id, data) => api.post(`/leaves/${id}/hr-action`, data),
-  ceoAction: (id, data) => api.post(`/leaves/${id}/ceo-action`, data),
-  cancel: (id) => api.post(`/leaves/${id}/cancel`),
-  update: (id, data) => api.put(`/leaves/${id}`, data),
-  getTypes: () => api.get('/leaves/types/all'),
-  createType: (data) => api.post('/leaves/types', data),
-  updateType: (id, data) => api.put(`/leaves/types/${id}`, data),
-  deleteType: (id) => api.delete(`/leaves/types/${id}`)
-};
-
 export const appraisalAPI = {
   create: (data) => api.post('/appraisals', data),
   getAll: (params) => api.get('/appraisals', { params }),
@@ -116,7 +87,6 @@ export const departmentAPI = {
 
 export const dashboardAPI = {
   getStats: () => api.get('/dashboard/stats'),
-  getLeaveAnalytics: (params) => api.get('/dashboard/analytics/leave', { params }),
   getAppraisalAnalytics: (params) => api.get('/dashboard/analytics/appraisal', { params }),
   getAuditLogs: (params) => api.get('/dashboard/audit-logs', { params })
 };
